@@ -1,0 +1,1 @@
+# All of the constants for the server will be in this file
