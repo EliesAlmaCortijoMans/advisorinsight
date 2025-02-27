@@ -1,18 +1,26 @@
+import importlib
+import pkgutil
 from flask import Flask
 import logging
-import sys
-import requests
-from handlers import get_all_blueprints
 import threading
 import time
-from constants.constants import COMPANIES_LIST  # Import the list directly
+import flask
+import requests
+from importlib import import_module
+from pathlib import Path
+from flask import Blueprint
+from constants.constants import COMPANIES_LIST
 
 app = Flask(__name__)
 logger = logging.getLogger(__name__)
 
-# Register all blueprints
-for blueprint in get_all_blueprints():
-    app.register_blueprint(blueprint)
+handler_groups = [
+    name for _, name, _ in pkgutil.iter_modules(["server/handlers", "handlers"])
+]
+for handler in handler_groups:
+    mod = importlib.import_module(f"handlers.{handler}", "handlers")
+    if hasattr(mod, "bp") and isinstance(mod.bp, flask.Blueprint):
+        app.register_blueprint(mod.bp)
     
 def run_flask():
     """Function to run Flask server"""
