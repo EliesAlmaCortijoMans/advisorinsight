@@ -2,6 +2,26 @@
 
 This server application fetches and processes earning calls data for specified companies. It provides a REST API to access the processed data and maintains a continuous running state for data availability.
 
+## Prerequisites
+
+- Python 3.12.7
+- Make (for using Makefile commands)
+- Finnhub API key (get it from https://finnhub.io/)
+
+## Environment Setup
+
+1. Create a `.env` file in the root directory:
+```bash
+touch .env
+```
+
+2. Add your Finnhub API key to the `.env` file:
+```bash
+FINNHUB_API_KEY=your_finnhub_api_key_here
+```
+
+3. Ensure `.env` is listed in `.gitignore` to keep your API key secure
+
 ## Project Structure
 
     ``` graph
@@ -28,19 +48,26 @@ This server application fetches and processes earning calls data for specified c
 
 ## Setup
 
-1. Clean the data directory if exists and venv to ensure a fresh start:
+1. Clean any existing environment:
+```bash
+make remove_venv
+make clean
+```
 
-        make clean
+2. Create and activate virtual environment:
+```bash
+make venv
+source venv/bin/activate
+```
 
-2. Create a virtual environment:
-        make venv
+3. Verify environment setup:
+   - Ensure `.env` file exists with valid Finnhub API key
+   - Confirm virtual environment is activated (you should see `(venv)` in your terminal)
 
-    After the virtual environment is created, activate it:
-        source venv/bin/activate
-
-3. Run the server:
-
-        make server
+4. Run the server:
+```bash
+make server
+```
 
 The server will:
     1. Start a Flask server on `http://localhost:5000`
