@@ -1,10 +1,8 @@
-# Getting Started with Advisor Insights At a Scale project
+## Backend Setup
 
-## Available Scripts
+### Prerequisites
+- Install npm
 
-In the project directory, you can run:
-
-### `npm start`
-
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+### Installation & Setup
+1. npm install
+2. npm run dev
