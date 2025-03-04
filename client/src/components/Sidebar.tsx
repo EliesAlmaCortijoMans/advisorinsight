@@ -60,8 +60,7 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedCompany, calls, pastCalls = [
 
   return (
     <div className="w-80 border-r border-gray-200 bg-white">
-      <div className="p-4 border-b border-gray-200">
-        <h1 className="text-xl font-semibold text-gray-900">Earnings Call Advisor</h1>
+      <div className="p-4 border-b border-gray-200">        
         <p className="text-sm text-gray-500 mt-1">Real-time earnings call analysis</p>
       </div>
       
