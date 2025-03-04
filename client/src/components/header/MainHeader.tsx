@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatDistanceToNow } from 'date-fns';
 import { 
   Home, 
   PhoneCall, 
@@ -21,7 +22,12 @@ interface NavItem {
   isOptional?: boolean;
 }
 
-const MainHeader: React.FC = () => {
+interface MainHeaderProps {
+  isMarketOpen: boolean;
+  nextMarketOpen: number | null;
+}
+
+const MainHeader: React.FC<MainHeaderProps> = ({ isMarketOpen, nextMarketOpen }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isDarkMode, setIsDarkMode] = useState(false);
 
@@ -55,6 +61,23 @@ const MainHeader: React.FC = () => {
             }}
           />
           <span className="ml-3 text-xl font-semibold text-gray-900">Earning Call Advisor</span>
+        </div>
+
+        {/* Market Status - Between Title and Navigation */}
+        <div className="ml-6 mr-4">
+          {isMarketOpen ? (
+            <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+              Market Open
+            </span>
+          ) : nextMarketOpen ? (
+            <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">
+              Opens {formatDistanceToNow(new Date(nextMarketOpen * 1000), { addSuffix: true })}
+            </span>
+          ) : (
+            <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium">
+              Market Closed
+            </span>
+          )}
         </div>
 
         {/* Main Navigation - Centered */}

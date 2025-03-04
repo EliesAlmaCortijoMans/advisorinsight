@@ -1,13 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import React from 'react';
+import { formatDistanceToNow } from 'date-fns';
 
 interface CompanyHeaderProps {
   company: string;
-  currentPrice: number;
-  priceChange: number;
-  priceChangePercent: number;
+  currentPrice: number | null;
+  priceChange: number | null;
+  priceChangePercent: number | null;
   lastUpdate: number;
-  isLoading?: boolean;
+  isLoading: boolean;
 }
 
 const CompanyHeader: React.FC<CompanyHeaderProps> = ({
@@ -16,47 +16,38 @@ const CompanyHeader: React.FC<CompanyHeaderProps> = ({
   priceChange,
   priceChangePercent,
   lastUpdate,
-  isLoading = false
+  isLoading
 }) => {
-  const [isFlashing, setIsFlashing] = useState(false);
+  const formatPrice = (price: number | null) => {
+    return price !== null ? `$${price.toFixed(2)}` : '-';
+  };
 
-  // Flash effect when price updates
-  useEffect(() => {
-    if (currentPrice > 0) {  // Only flash when we have a valid price
-      setIsFlashing(true);
-      const timer = setTimeout(() => setIsFlashing(false), 300);
-      return () => clearTimeout(timer);
-    }
-  }, [currentPrice]);  // React to price changes
+  const formatChange = (change: number | null, percentChange: number | null) => {
+    if (change === null || percentChange === null) return '-';
+    const sign = change >= 0 ? '+' : '';
+    return `${sign}$${change.toFixed(2)} (${sign}${percentChange.toFixed(2)}%)`;
+  };
 
-  if (isLoading) {
-    return (
-      <div>
-        <h2 className="text-2xl font-semibold text-gray-900">{company}</h2>
-        <div className="mt-2 flex items-baseline animate-pulse">
-          <div className="h-8 w-24 bg-gray-200 rounded"></div>
-          <div className="ml-2 h-6 w-16 bg-gray-200 rounded"></div>
-          <div className="ml-2 h-4 w-20 bg-gray-200 rounded"></div>
-        </div>
-      </div>
-    );
-  }
+  const getPriceChangeColor = (change: number | null) => {
+    if (change === null) return 'text-gray-500';
+    return change > 0 ? 'text-green-500' : change < 0 ? 'text-red-500' : 'text-gray-500';
+  };
 
   return (
     <div>
-      <h2 className="text-2xl font-semibold text-gray-900">{company}</h2>
-      <div className={`mt-2 flex items-baseline transition-colors duration-300 ${
-        isFlashing ? 'bg-blue-50' : ''
-      }`}>
-        <span className="text-3xl font-bold">${currentPrice.toFixed(2)}</span>
-        <span className={`ml-2 flex items-center ${priceChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-          {priceChange >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-          {Math.abs(priceChangePercent).toFixed(2)}%
-        </span>
-        <span className="ml-2 text-xs text-gray-500">
-          {new Date(lastUpdate).toLocaleTimeString()}
-        </span>
-      </div>
+      <h1 className="text-2xl font-bold mb-2">{company || 'Select a Company'}</h1>
+      {isLoading ? (
+        <div className="animate-pulse">
+          <div className="h-6 bg-gray-200 rounded w-32"></div>
+        </div>
+      ) : (
+        <div className="flex items-center space-x-4">
+          <span className="text-xl">{formatPrice(currentPrice)}</span>
+          <span className={`${getPriceChangeColor(priceChange)}`}>
+            {formatChange(priceChange, priceChangePercent)}
+          </span>
+        </div>
+      )}
     </div>
   );
 };
