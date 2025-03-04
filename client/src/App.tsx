@@ -12,7 +12,7 @@ import { Headphones } from 'lucide-react';
 import TranscriptModal from './components/modals/TranscriptModal';
 import SummaryModal from './components/modals/SummaryModal';
 import { StockWebSocket } from './services/stockWebSocket';
-import { fetchCompanyTranscripts } from './services/transcriptService';
+import { fetchCompanyTranscripts, prefetchAllTranscripts } from './services/transcriptService';
 import { fetchAudioHistory } from './services/audioService';
 import { fetchEarningsSchedule } from './services/earningsService';
 import MainHeader from './components/header/MainHeader';
@@ -123,11 +123,18 @@ function App() {
           status: call.status as 'upcoming' | 'ongoing' | 'past'
         }));
         setEarningsData(formattedData);
-        setCompanies(formattedData.map(call => ({
+        
+        const companies = formattedData.map(call => ({
           symbol: call.symbol,
           name: call.company,
           status: call.status
-        })));
+        }));
+        setCompanies(companies);
+        
+        // Prefetch transcripts for all companies
+        const symbols = formattedData.map(call => call.symbol);
+        await prefetchAllTranscripts(symbols);
+        
         setIsLoadingEarnings(false);
       } catch (error) {
         console.error('Error fetching earnings:', error);
@@ -326,7 +333,7 @@ function App() {
       {showFullTranscript && selectedTranscript && (
         <TranscriptModal 
           onClose={() => setShowFullTranscript(false)}
-          transcripts={[selectedTranscript]}
+          transcripts={transcripts}
           currentTranscript={selectedTranscript}
           onTranscriptSelect={setSelectedTranscript}
         />

@@ -14,6 +14,7 @@ from urllib3.exceptions import NameResolutionError
 import time
 from django.core.cache import cache
 from math import isnan
+import redis
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -135,12 +136,36 @@ def get_audio_history(request, symbol):
 
 def get_company_transcripts(request, symbol):
     try:
-        # Get the base directory for transcripts
+        # Initialize Redis client
+        redis_client = redis.Redis(
+            host=os.getenv('REDIS_HOST', 'localhost'),
+            port=int(os.getenv('REDIS_PORT', 6379)),
+            db=0,
+            decode_responses=True
+        )
+        
+        cache_key = f"transcripts:{symbol}"
+        
+        # Use Redis pipeline for better performance
+        with redis_client.pipeline() as pipe:
+            # Check if transcripts exist in cache
+            pipe.exists(cache_key)
+            pipe.get(cache_key)
+            exists, cached_transcripts = pipe.execute()
+            
+            if exists:
+                logger.info(f"Using cached transcripts for {symbol}")
+                return JsonResponse({
+                    'success': True,
+                    'transcripts': json.loads(cached_transcripts)
+                })
+        
+        # If not in cache, get from filesystem
         base_dir = Path(__file__).resolve().parent.parent / 'data' / symbol / 'transcripts'
-        print(f"Looking for transcripts in: {base_dir}")
+        logger.info(f"Looking for transcripts in: {base_dir}")
         
         if not os.path.exists(base_dir):
-            print(f"Directory not found: {base_dir}")
+            logger.warning(f"Directory not found: {base_dir}")
             return JsonResponse({
                 'success': False,
                 'error': f'No transcripts found for {symbol}'
@@ -151,7 +176,7 @@ def get_company_transcripts(request, symbol):
             [f for f in os.listdir(base_dir) if f.endswith('.json')],
             reverse=True  # Most recent first
         )
-        print(f"Found transcript files: {transcript_files}")
+        logger.info(f"Found transcript files: {transcript_files}")
         
         transcripts = []
         for file_name in transcript_files:
@@ -160,7 +185,7 @@ def get_company_transcripts(request, symbol):
                     transcript_data = json.load(f)
                     transcripts.append(transcript_data)
             except Exception as e:
-                print(f"Error reading file {file_name}: {str(e)}")
+                logger.error(f"Error reading file {file_name}: {str(e)}")
                 continue
         
         if not transcripts:
@@ -169,12 +194,25 @@ def get_company_transcripts(request, symbol):
                 'error': 'No valid transcripts found'
             }, status=404)
         
+        # Cache the transcripts in Redis using pipeline
+        try:
+            with redis_client.pipeline() as pipe:
+                pipe.setex(
+                    cache_key,
+                    24 * 60 * 60,  # 24 hours
+                    json.dumps(transcripts)
+                )
+                pipe.execute()
+                logger.info(f"Cached transcripts for {symbol}")
+        except Exception as e:
+            logger.error(f"Error caching transcripts: {str(e)}")
+        
         return JsonResponse({
             'success': True,
             'transcripts': transcripts
         })
     except Exception as e:
-        print(f"Error in get_company_transcripts: {str(e)}")
+        logger.error(f"Error in get_company_transcripts: {str(e)}")
         return JsonResponse({
             'success': False,
             'error': str(e)

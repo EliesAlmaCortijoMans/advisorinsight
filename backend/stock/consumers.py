@@ -132,14 +132,18 @@ class StockConsumer(AsyncWebsocketConsumer):
                 logger.info(f"Fresh quote data: {quote_data}")
                 return quote_data
             
-            # Only use cache if market is closed
+            # Market is closed - try cache first
             if self.redis_available:
                 cached_data = self.redis_client.get(f"stock_price:{symbol}")
                 if cached_data:
                     logger.info(f"Using cached data for {symbol}")
-                    return json.loads(cached_data)
+                    cached_quote = json.loads(cached_data)
+                    # Update the market status info
+                    cached_quote['isLive'] = False
+                    cached_quote['nextMarketOpen'] = market_status['next_open']
+                    return cached_quote
             
-            # If no cache, get quote anyway
+            # No cache available - get fresh quote and cache it
             logger.info(f"No cache - Getting quote for {symbol}")
             quote = self.finnhub_client.quote(symbol)
             if not quote or 'c' not in quote:
@@ -157,18 +161,26 @@ class StockConsumer(AsyncWebsocketConsumer):
                 'open': quote['o'],
                 'previousClose': quote['pc'],
                 'timestamp': int(time.time()),
-                'isLive': market_status['is_open'],
+                'isLive': False,
                 'nextMarketOpen': market_status['next_open']
             }
             
-            # Cache the data if market is closed
-            if not market_status['is_open'] and self.redis_available:
+            # Cache until next market open or 24 hours, whichever is sooner
+            if self.redis_available:
                 try:
+                    cache_duration = 24 * 60 * 60  # Default 24 hours
+                    if market_status['next_open']:
+                        # Calculate seconds until market opens
+                        seconds_until_open = market_status['next_open'] - int(time.time())
+                        if seconds_until_open > 0:
+                            cache_duration = seconds_until_open
+                    
                     self.redis_client.setex(
                         f"stock_price:{symbol}",
-                        24 * 60 * 60,  # Cache for 24 hours
+                        cache_duration,
                         json.dumps(quote_data)
                     )
+                    logger.info(f"Cached quote data for {cache_duration} seconds")
                 except Exception as e:
                     logger.error(f"Error caching quote data: {e}")
             
@@ -224,10 +236,9 @@ class StockConsumer(AsyncWebsocketConsumer):
                 self.subscribed_symbols.add(symbol)
                 logger.info(f"Starting updates for {symbol}")
                 
-                # Get initial quote immediately
-                quote_data = self.get_quote(symbol)
-                if quote_data:
-                    await self.send(text_data=json.dumps(quote_data))
+                # Always fetch fresh price data on subscription
+                market_status = self.get_market_status()
+                await self.fetch_and_cache_prices(market_status, [symbol])
                 
                 # Start the update task if not running
                 if not self.update_task:
@@ -258,6 +269,7 @@ class StockConsumer(AsyncWebsocketConsumer):
     async def send_periodic_updates(self):
         """Send periodic price updates for all subscribed symbols"""
         logger.info("Starting periodic updates for all symbols")
+        last_market_status = None
         try:
             while True:
                 try:
@@ -265,18 +277,54 @@ class StockConsumer(AsyncWebsocketConsumer):
                     market_status = self.get_market_status()
                     logger.info(f"Market status: {market_status}")
 
-                    # Update all subscribed symbols
-                    for symbol in list(self.subscribed_symbols):
-                        try:
-                            quote_data = self.get_quote(symbol)
-                            if quote_data:
-                                logger.info(f"Sending update for {symbol}: {quote_data}")
-                                await self.send(text_data=json.dumps(quote_data))
-                        except Exception as e:
-                            if "API limit reached" in str(e):
-                                logger.warning(f"API rate limit hit for {symbol}, will retry in next interval")
-                            else:
-                                logger.error(f"Error getting quote for {symbol}: {str(e)}")
+                    # Handle market closing transition
+                    if last_market_status and last_market_status['is_open'] and not market_status['is_open']:
+                        logger.info("Market just closed - fetching and caching final prices")
+                        await self.fetch_and_cache_prices(market_status)
+                    else:
+                        # Update all subscribed symbols
+                        for symbol in list(self.subscribed_symbols):
+                            try:
+                                if market_status['is_open']:
+                                    # Market open - get fresh quote
+                                    quote = self.finnhub_client.quote(symbol)
+                                    if quote and 'c' in quote:
+                                        quote_data = {
+                                            'type': 'price_update',
+                                            'symbol': symbol,
+                                            'price': quote['c'],
+                                            'change': quote['d'],
+                                            'percentChange': quote['dp'],
+                                            'high': quote['h'],
+                                            'low': quote['l'],
+                                            'open': quote['o'],
+                                            'previousClose': quote['pc'],
+                                            'timestamp': int(time.time()),
+                                            'isLive': True,
+                                            'nextMarketOpen': None
+                                        }
+                                        await self.send(text_data=json.dumps(quote_data))
+                                        logger.info(f"Sent live update for {symbol}")
+                                else:
+                                    # Market closed - only use cache, don't fetch new data
+                                    if self.redis_available:
+                                        cached_data = self.redis_client.get(f"stock_price:{symbol}")
+                                        if cached_data:
+                                            cached_quote = json.loads(cached_data)
+                                            cached_quote['isLive'] = False
+                                            cached_quote['nextMarketOpen'] = market_status['next_open']
+                                            await self.send(text_data=json.dumps(cached_quote))
+                                            logger.info(f"Sent cached update for {symbol}")
+                                        else:
+                                            logger.warning(f"No cache available for {symbol} during closed market")
+                            except Exception as e:
+                                if "API limit reached" in str(e):
+                                    logger.warning(f"API rate limit hit for {symbol}, will retry in next interval")
+                                else:
+                                    logger.error(f"Error updating {symbol}: {str(e)}")
+
+                    # Update last market status
+                    last_market_status = market_status
 
                     # Sleep for the update interval
                     sleep_time = self.update_interval if market_status['is_open'] else 60
@@ -290,4 +338,55 @@ class StockConsumer(AsyncWebsocketConsumer):
         except asyncio.CancelledError:
             logger.info("Periodic updates cancelled")
         except Exception as e:
-            logger.error(f"Error in periodic updates: {str(e)}") 
+            logger.error(f"Error in periodic updates: {str(e)}")
+
+    async def fetch_and_cache_prices(self, market_status, symbols=None):
+        """Fetch and cache prices for specified symbols or all subscribed symbols"""
+        try:
+            symbols_to_fetch = symbols if symbols else list(self.subscribed_symbols)
+            for symbol in symbols_to_fetch:
+                try:
+                    quote = self.finnhub_client.quote(symbol)
+                    if quote and 'c' in quote:
+                        quote_data = {
+                            'type': 'price_update',
+                            'symbol': symbol,
+                            'price': quote['c'],
+                            'change': quote['d'],
+                            'percentChange': quote['dp'],
+                            'high': quote['h'],
+                            'low': quote['l'],
+                            'open': quote['o'],
+                            'previousClose': quote['pc'],
+                            'timestamp': int(time.time()),
+                            'isLive': market_status['is_open'],
+                            'nextMarketOpen': market_status['next_open'] if not market_status['is_open'] else None
+                        }
+                        
+                        # Cache the data if market is closed
+                        if not market_status['is_open'] and self.redis_available:
+                            try:
+                                cache_duration = 24 * 60 * 60  # Default 24 hours
+                                if market_status['next_open']:
+                                    seconds_until_open = market_status['next_open'] - int(time.time())
+                                    if seconds_until_open > 0:
+                                        cache_duration = seconds_until_open
+                                
+                                self.redis_client.setex(
+                                    f"stock_price:{symbol}",
+                                    cache_duration,
+                                    json.dumps(quote_data)
+                                )
+                                logger.info(f"Cached price for {symbol} for {cache_duration} seconds")
+                            except Exception as e:
+                                logger.error(f"Error caching price for {symbol}: {e}")
+                        
+                        # Send update to clients
+                        await self.send(text_data=json.dumps(quote_data))
+                        logger.info(f"Sent price update for {symbol}: {quote_data}")
+                    else:
+                        logger.error(f"Invalid quote data received for {symbol}: {quote}")
+                except Exception as e:
+                    logger.error(f"Error getting price for {symbol}: {e}")
+        except Exception as e:
+            logger.error(f"Error in fetch_and_cache_prices: {e}") 
