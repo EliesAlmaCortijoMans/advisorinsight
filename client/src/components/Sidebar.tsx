@@ -7,11 +7,12 @@ interface SidebarProps {
   calls: EarningsCall[];
   pastCalls?: EarningsCall[];
   onSelectCompany: (company: string) => void;
+  isLoading?: boolean;
 }
 
 type FilterType = 'all' | 'upcoming' | 'live' | 'past';
 
-const Sidebar: React.FC<SidebarProps> = ({ selectedCompany, calls, pastCalls = [], onSelectCompany }) => {
+const Sidebar: React.FC<SidebarProps> = ({ selectedCompany, calls, pastCalls = [], onSelectCompany, isLoading = false }) => {
   const [filter, setFilter] = useState<FilterType>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -72,6 +73,7 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedCompany, calls, pastCalls = [
             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
             value={searchTerm}
             onChange={handleSearchChange}
+            disabled={isLoading}
           />
         </div>
 
@@ -83,6 +85,7 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedCompany, calls, pastCalls = [
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
             onClick={() => handleFilterChange('all')}
+            disabled={isLoading}
           >
             All Calls
           </button>
@@ -93,6 +96,7 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedCompany, calls, pastCalls = [
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
             onClick={() => handleFilterChange('upcoming')}
+            disabled={isLoading}
           >
             Upcoming
           </button>
@@ -103,6 +107,7 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedCompany, calls, pastCalls = [
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
             onClick={() => handleFilterChange('live')}
+            disabled={isLoading}
           >
             Live
           </button>
@@ -113,6 +118,7 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedCompany, calls, pastCalls = [
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
             onClick={() => handleFilterChange('past')}
+            disabled={isLoading}
           >
             Past
           </button>
@@ -120,7 +126,12 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedCompany, calls, pastCalls = [
       </div>
 
       <div className="overflow-y-auto">
-        {displayedCalls.length > 0 ? (
+        {isLoading ? (
+          <div className="p-4 flex flex-col items-center justify-center space-y-3">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+            <p className="text-sm text-gray-500">Loading earnings calls...</p>
+          </div>
+        ) : displayedCalls.length > 0 ? (
           displayedCalls.map(call => (
             <CallListItem
               key={`${call.symbol}-${call.date}`}

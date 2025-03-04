@@ -30,10 +30,12 @@ function App() {
     percentChange: 0,
     lastUpdate: Date.now()
   });
+  const [isLoadingStockPrice, setIsLoadingStockPrice] = useState(false);
   const [transcripts, setTranscripts] = useState<any[]>([]);
   const [selectedTranscript, setSelectedTranscript] = useState<any>(null);
   const [audioHistory, setAudioHistory] = useState<any[]>([]);
   const [earningsData, setEarningsData] = useState<any[]>([]);
+  const [isLoadingEarnings, setIsLoadingEarnings] = useState(true);
 
   // Callback for handling price updates
   const handlePriceUpdate = useCallback((data: any) => {
@@ -43,6 +45,7 @@ function App() {
       percentChange: data.percentChange,
       lastUpdate: Date.now()
     });
+    setIsLoadingStockPrice(false);
   }, []);
 
   // Initialize WebSocket connection
@@ -60,6 +63,7 @@ function App() {
   useEffect(() => {
     const selectedCall = earningsData.find(call => call.company === selectedCompany);
     if (selectedCall && stockWebSocket) {
+      setIsLoadingStockPrice(true);
       stockWebSocket.subscribeToSymbol(selectedCall.symbol);
     }
   }, [selectedCompany, stockWebSocket, earningsData]);
@@ -106,14 +110,17 @@ function App() {
     fetchAudio();
   }, [selectedCompany, earningsData]);
 
-  // Add useEffect to fetch earnings data
+  // Update useEffect to fetch earnings data with loading state
   useEffect(() => {
     const fetchEarnings = async () => {
+      setIsLoadingEarnings(true);  // Set loading to true before fetch
       try {
         const data = await fetchEarningsSchedule();
         setEarningsData(data);
       } catch (error) {
         console.error('Error fetching earnings:', error);
+      } finally {
+        setIsLoadingEarnings(false);  // Set loading to false after fetch
       }
     };
 
@@ -141,6 +148,7 @@ function App() {
         selectedCompany={selectedCompany}
         calls={earningsData}
         onSelectCompany={setSelectedCompany}
+        isLoading={isLoadingEarnings}
       />
 
       <div className="flex-1 overflow-auto">
@@ -152,6 +160,7 @@ function App() {
               priceChange={stockData.change}
               priceChangePercent={stockData.percentChange}
               lastUpdate={stockData.lastUpdate}
+              isLoading={isLoadingStockPrice && selectedCompany !== ''}
             />
             <button 
               className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"

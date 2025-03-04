@@ -12,6 +12,7 @@ import logging
 import socket
 from urllib3.exceptions import NameResolutionError
 import time
+from django.core.cache import cache
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -36,6 +37,10 @@ retries = Retry(
     respect_retry_after_header=True
 )
 session.mount('https://', HTTPAdapter(max_retries=retries))
+
+# Cache settings
+CACHE_TIMEOUT = 60 * 15  # 15 minutes
+CACHE_KEY_PREFIX = "finnhub_earnings_"
 
 # Company configurations
 COMPANY_NAMES = {
@@ -175,7 +180,15 @@ def get_company_transcripts(request, symbol):
         }, status=500)
 
 def fetch_earnings(from_date, to_date, symbol):
-    """Fetch earnings calendar from Finnhub API using HTTP requests"""
+    """Fetch earnings calendar from Finnhub API using HTTP requests with caching"""
+    cache_key = f"{CACHE_KEY_PREFIX}{symbol}_{from_date}_{to_date}"
+    
+    # Try to get cached data first
+    cached_data = cache.get(cache_key)
+    if cached_data is not None:
+        logger.info(f"Using cached data for {symbol}")
+        return cached_data
+    
     url = "https://finnhub.io/api/v1/calendar/earnings"
     params = {
         "from": from_date,
@@ -197,22 +210,50 @@ def fetch_earnings(from_date, to_date, symbol):
                 if attempt < max_retries - 1:
                     time.sleep(retry_delay * (attempt + 1))
                     continue
+                # On final attempt, try to use cached data if available
+                if cached_data is not None:
+                    logger.warning(f"Using stale cached data for {symbol} due to DNS error")
+                    return cached_data
                 raise
             
             response = session.get(url, params=params, timeout=120)
+            
+            # Handle 502 Bad Gateway specifically
+            if response.status_code == 502:
+                logger.warning(f"Received 502 from Finnhub for {symbol} (attempt {attempt + 1})")
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay * (attempt + 1))
+                    continue
+                # On final attempt with 502, use cached data if available
+                if cached_data is not None:
+                    logger.warning(f"Using stale cached data for {symbol} due to 502 error")
+                    return cached_data
+                
             response.raise_for_status()
-            return response.json().get("earningsCalendar", [])
+            data = response.json().get("earningsCalendar", [])
+            
+            # Cache successful response
+            cache.set(cache_key, data, CACHE_TIMEOUT)
+            return data
             
         except requests.exceptions.RequestException as e:
             logger.warning(f"Request failed for {symbol} (attempt {attempt + 1}/{max_retries}): {e}")
             if attempt < max_retries - 1:
                 time.sleep(retry_delay * (attempt + 1))
                 continue
+            # On final attempt, try to use cached data
+            if cached_data is not None:
+                logger.warning(f"Using stale cached data for {symbol} due to request error")
+                return cached_data
             logger.error(f"All attempts failed for {symbol}: {e}")
             raise
             
         except Exception as e:
             logger.error(f"Unexpected error fetching data for {symbol}: {e}")
+            # Try to use cached data on unexpected errors
+            if cached_data is not None:
+                logger.warning(f"Using stale cached data for {symbol} due to unexpected error")
+                return cached_data
             raise
 
 def format_eps(value):
@@ -239,10 +280,17 @@ def get_earnings_schedule():
         except Exception as e:
             logger.error(f"Error fetching data for {ticker}: {e}")
             failed_tickers.append(ticker)
-            all_earnings_data[ticker] = []
+            # Try to get cached data as fallback
+            cache_key = f"{CACHE_KEY_PREFIX}{ticker}_{str(past_date)}_{str(future_date)}"
+            cached_data = cache.get(cache_key)
+            if cached_data is not None:
+                logger.info(f"Using cached data as fallback for {ticker}")
+                all_earnings_data[ticker] = sorted(cached_data, key=lambda x: x.get("date", ""))
+            else:
+                all_earnings_data[ticker] = []
     
     if failed_tickers:
-        logger.warning(f"Failed to fetch data for tickers: {', '.join(failed_tickers)}")
+        logger.warning(f"Failed to fetch fresh data for tickers: {', '.join(failed_tickers)}")
     
     # Prepare result containers
     earnings_data = []

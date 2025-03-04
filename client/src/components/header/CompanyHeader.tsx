@@ -7,6 +7,7 @@ interface CompanyHeaderProps {
   priceChange: number;
   priceChangePercent: number;
   lastUpdate: number;
+  isLoading?: boolean;
 }
 
 const CompanyHeader: React.FC<CompanyHeaderProps> = ({
@@ -14,7 +15,8 @@ const CompanyHeader: React.FC<CompanyHeaderProps> = ({
   currentPrice,
   priceChange,
   priceChangePercent,
-  lastUpdate
+  lastUpdate,
+  isLoading = false
 }) => {
   const [isFlashing, setIsFlashing] = useState(false);
 
@@ -26,6 +28,19 @@ const CompanyHeader: React.FC<CompanyHeaderProps> = ({
       return () => clearTimeout(timer);
     }
   }, [currentPrice]);  // React to price changes
+
+  if (isLoading) {
+    return (
+      <div>
+        <h2 className="text-2xl font-semibold text-gray-900">{company}</h2>
+        <div className="mt-2 flex items-baseline animate-pulse">
+          <div className="h-8 w-24 bg-gray-200 rounded"></div>
+          <div className="ml-2 h-6 w-16 bg-gray-200 rounded"></div>
+          <div className="ml-2 h-4 w-20 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
