@@ -1,30 +1,32 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { EarningsCall } from '../types';
+import { EarningsCall, Company, StockData } from '../types';
 import CallListItem from './CallListItem';
+import { StockWebSocket } from '../services/stockWebSocket';
 
 interface SidebarProps {
-  selectedCompany: string;
+  selectedCompany: Company | null;
   calls: EarningsCall[];
-  pastCalls?: EarningsCall[];
-  onSelectCompany: (company: string) => void;
+  onSelectCompany: (company: Company) => void;
   isLoading?: boolean;
+  stockData: Record<string, StockData>;
 }
 
 type FilterType = 'all' | 'upcoming' | 'live' | 'past';
 
-const Sidebar: React.FC<SidebarProps> = ({ selectedCompany, calls, pastCalls = [], onSelectCompany, isLoading = false }) => {
+const Sidebar: React.FC<SidebarProps> = ({ 
+  selectedCompany, 
+  calls, 
+  onSelectCompany, 
+  isLoading = false,
+  stockData
+}) => {
   const [filter, setFilter] = useState<FilterType>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
   // Memoize the data filtering logic
   const displayedCalls = useMemo(() => {
-    // Determine which data source to use
-    let dataToFilter: EarningsCall[] = filter === 'past'
-      ? [...pastCalls, ...calls.filter(call => call.status === 'past')]
-      : [...calls];
-    
     // Sort the calls
-    const sortedData = dataToFilter.sort((a, b) => {
+    const sortedData = [...calls].sort((a, b) => {
       const dateCompare = new Date(a.date).getTime() - new Date(b.date).getTime();
       return dateCompare !== 0 ? dateCompare : a.time.localeCompare(b.time);
     });
@@ -46,7 +48,7 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedCompany, calls, pastCalls = [
       
       return matchesFilter && matchesSearch;
     });
-  }, [filter, searchTerm, calls, pastCalls]);
+  }, [filter, searchTerm, calls]);
 
   // Memoize filter change handler
   const handleFilterChange = useCallback((newFilter: FilterType) => {
@@ -59,28 +61,28 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedCompany, calls, pastCalls = [
   }, []);
 
   return (
-    <div className="w-80 border-r border-gray-200 bg-white">
-      <div className="p-4 border-b border-gray-200">        
+    <div className="w-80 border-r border-gray-200 bg-white flex flex-col h-full">
+      <div className="p-4 border-b border-gray-200 bg-white">        
         <p className="text-sm text-gray-500 mt-1">Real-time earnings call analysis</p>
       </div>
       
-      <div className="p-4">
+      <div className="p-4 border-b border-gray-200 bg-white">
         <div className="relative mb-4">
           <input
             type="text"
             placeholder="Search company or symbol..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             value={searchTerm}
             onChange={handleSearchChange}
             disabled={isLoading}
           />
         </div>
 
-        <div className="flex space-x-2 mb-4">
+        <div className="flex space-x-2">
           <button 
-            className={`px-3 py-1 text-xs rounded-full ${
+            className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors duration-150 ${
               filter === 'all' 
-                ? 'bg-blue-100 text-blue-800' 
+                ? 'bg-indigo-100 text-indigo-800' 
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
             onClick={() => handleFilterChange('all')}
@@ -89,9 +91,9 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedCompany, calls, pastCalls = [
             All Calls
           </button>
           <button 
-            className={`px-3 py-1 text-xs rounded-full ${
+            className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors duration-150 ${
               filter === 'upcoming' 
-                ? 'bg-blue-100 text-blue-800' 
+                ? 'bg-indigo-100 text-indigo-800' 
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
             onClick={() => handleFilterChange('upcoming')}
@@ -100,9 +102,9 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedCompany, calls, pastCalls = [
             Upcoming
           </button>
           <button 
-            className={`px-3 py-1 text-xs rounded-full ${
+            className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors duration-150 ${
               filter === 'live' 
-                ? 'bg-blue-100 text-blue-800' 
+                ? 'bg-indigo-100 text-indigo-800' 
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
             onClick={() => handleFilterChange('live')}
@@ -111,9 +113,9 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedCompany, calls, pastCalls = [
             Live
           </button>
           <button 
-            className={`px-3 py-1 text-xs rounded-full ${
+            className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors duration-150 ${
               filter === 'past' 
-                ? 'bg-blue-100 text-blue-800' 
+                ? 'bg-indigo-100 text-indigo-800' 
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
             onClick={() => handleFilterChange('past')}
@@ -124,23 +126,30 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedCompany, calls, pastCalls = [
         </div>
       </div>
 
-      <div className="overflow-y-auto">
+      <div className="flex-1 overflow-y-auto bg-white">
         {isLoading ? (
-          <div className="p-4 flex flex-col items-center justify-center space-y-3">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          <div className="p-8 flex flex-col items-center justify-center space-y-3">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
             <p className="text-sm text-gray-500">Loading earnings calls...</p>
           </div>
         ) : displayedCalls.length > 0 ? (
-          displayedCalls.map(call => (
-            <CallListItem
-              key={`${call.symbol}-${call.date}`}
-              call={call}
-              isSelected={selectedCompany === call.company}
-              onSelect={() => onSelectCompany(call.company)}
-            />
-          ))
+          <div className="divide-y divide-gray-200">
+            {displayedCalls.map(call => (
+              <CallListItem
+                key={`${call.symbol}-${call.date}`}
+                call={call}
+                isSelected={selectedCompany?.symbol === call.symbol}
+                onSelect={() => onSelectCompany({
+                  symbol: call.symbol,
+                  name: call.company,
+                  status: call.status
+                })}
+                stockData={stockData[call.symbol]}
+              />
+            ))}
+          </div>
         ) : (
-          <div className="p-4 text-center text-gray-500">
+          <div className="p-8 text-center text-gray-500">
             No calls found {searchTerm && 'matching your search'}
           </div>
         )}

@@ -13,6 +13,7 @@ import socket
 from urllib3.exceptions import NameResolutionError
 import time
 from django.core.cache import cache
+from math import isnan
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -258,9 +259,14 @@ def fetch_earnings(from_date, to_date, symbol):
 
 def format_eps(value):
     """Format EPS value as currency."""
-    if value is not None:
-        return f"${float(value):.2f}"
-    return None
+    try:
+        if value is not None and value != "":
+            float_value = float(value)
+            if not isnan(float_value):
+                return float_value
+        return None
+    except (ValueError, TypeError):
+        return None
 
 def get_earnings_schedule():
     """Function to fetch past, current, and upcoming earnings with time shifting."""

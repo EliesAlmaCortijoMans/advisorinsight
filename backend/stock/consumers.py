@@ -39,42 +39,62 @@ class StockConsumer(AsyncWebsocketConsumer):
             logger.error(f"Failed to connect to Redis: {e}")
             self.redis_available = False
         
-        self.current_symbol = None
+        self.subscribed_symbols = set()
         self.update_task = None
-        self.last_quote_time = 0
-        self.quote_cooldown = 2.0  # 2 seconds between quotes
+        self.last_update_time = 0
+        self.update_interval = 15  # 15 seconds between updates
 
     def get_market_status(self):
         """Get current market status and next opening time"""
         try:
-            market_data = self.finnhub_client.market_status(exchange='US')
-            is_open = market_data.get('isOpen', False)
-            
-            # Get current time in US/Eastern
+            # Get current time in local timezone and convert to US/Eastern
+            local_tz = datetime.now().astimezone().tzinfo
+            local_time = datetime.now(local_tz)
             eastern = pytz.timezone('US/Eastern')
-            now = datetime.now(eastern)
+            now = local_time.astimezone(eastern)
+            
+            # Market hours are 9:30 AM to 4:00 PM Eastern, Monday to Friday
+            market_open = now.replace(hour=9, minute=30, second=0, microsecond=0)
+            market_close = now.replace(hour=16, minute=0, second=0, microsecond=0)
+            
+            # Debug timezone info
+            logger.info("=== Market Hours Debug ===")
+            logger.info(f"Local timezone: {local_tz}")
+            logger.info(f"Local time (raw): {datetime.now()}")
+            logger.info(f"Local time (with tz): {local_time}")
+            logger.info(f"Eastern time: {now}")
+            logger.info(f"Market open: {market_open}")
+            logger.info(f"Market close: {market_close}")
+            logger.info(f"Current weekday: {now.weekday()}")  # 0 = Monday, 6 = Sunday
+            logger.info(f"Current hour (ET): {now.hour}")
+            logger.info(f"Current minute (ET): {now.minute}")
+            logger.info("========================")
+            
+            is_open = (
+                now.weekday() < 5 and  # Monday to Friday
+                market_open <= now <= market_close
+            )
             
             # Calculate next market open time
             next_open = None
             if not is_open:
-                # If it's weekend, calculate next Monday
-                if now.weekday() >= 5:  # 5 = Saturday, 6 = Sunday
+                if now.weekday() >= 5:  # Weekend
                     days_until_monday = (7 - now.weekday()) % 7
                     next_open = now.replace(hour=9, minute=30, second=0, microsecond=0) + timedelta(days=days_until_monday)
-                else:
-                    # If it's before market hours today
-                    market_open_today = now.replace(hour=9, minute=30, second=0, microsecond=0)
-                    if now < market_open_today:
-                        next_open = market_open_today
-                    else:
-                        # If it's after market hours, set to next day
-                        next_open = (now + timedelta(days=1)).replace(hour=9, minute=30, second=0, microsecond=0)
+                elif now < market_open:  # Before market hours today
+                    next_open = market_open
+                elif now > market_close:  # After market hours today
+                    next_open = (now + timedelta(days=1)).replace(hour=9, minute=30, second=0, microsecond=0)
+                    # If next day is weekend, move to Monday
+                    if next_open.weekday() >= 5:
+                        days_until_monday = (7 - next_open.weekday()) % 7
+                        next_open = next_open + timedelta(days=days_until_monday)
                 
-                # Convert to timestamp
                 next_open_ts = int(next_open.timestamp()) if next_open else None
             else:
                 next_open_ts = None
             
+            logger.info(f"Market status result: is_open={is_open}, next_open={next_open_ts}")
             return {
                 'is_open': is_open,
                 'next_open': next_open_ts
@@ -86,23 +106,48 @@ class StockConsumer(AsyncWebsocketConsumer):
     def get_quote(self, symbol):
         """Get quote data from Finnhub or cache"""
         try:
-            # Check cache first if Redis is available
+            # Always get fresh quote during market hours
+            market_status = self.get_market_status()
+            if market_status['is_open']:
+                logger.info(f"Market open - Getting fresh quote for {symbol}")
+                quote = self.finnhub_client.quote(symbol)
+                if not quote or 'c' not in quote:
+                    logger.error(f"Invalid quote data received for {symbol}: {quote}")
+                    return None
+                
+                quote_data = {
+                    'type': 'price_update',
+                    'symbol': symbol,
+                    'price': quote['c'],
+                    'change': quote['d'],
+                    'percentChange': quote['dp'],
+                    'high': quote['h'],
+                    'low': quote['l'],
+                    'open': quote['o'],
+                    'previousClose': quote['pc'],
+                    'timestamp': int(time.time()),
+                    'isLive': True,
+                    'nextMarketOpen': None
+                }
+                logger.info(f"Fresh quote data: {quote_data}")
+                return quote_data
+            
+            # Only use cache if market is closed
             if self.redis_available:
                 cached_data = self.redis_client.get(f"stock_price:{symbol}")
                 if cached_data:
+                    logger.info(f"Using cached data for {symbol}")
                     return json.loads(cached_data)
             
-            # Get fresh quote from Finnhub
+            # If no cache, get quote anyway
+            logger.info(f"No cache - Getting quote for {symbol}")
             quote = self.finnhub_client.quote(symbol)
             if not quote or 'c' not in quote:
                 logger.error(f"Invalid quote data received for {symbol}: {quote}")
                 return None
             
-            # Get market status
-            market_status = self.get_market_status()
-            
-            # Format the quote data
             quote_data = {
+                'type': 'price_update',
                 'symbol': symbol,
                 'price': quote['c'],
                 'change': quote['d'],
@@ -116,7 +161,7 @@ class StockConsumer(AsyncWebsocketConsumer):
                 'nextMarketOpen': market_status['next_open']
             }
             
-            # Cache the data if market is closed and Redis is available
+            # Cache the data if market is closed
             if not market_status['is_open'] and self.redis_available:
                 try:
                     self.redis_client.setex(
@@ -127,7 +172,6 @@ class StockConsumer(AsyncWebsocketConsumer):
                 except Exception as e:
                     logger.error(f"Error caching quote data: {e}")
             
-            logger.info(f"Got quote for {symbol}: {quote_data}")
             return quote_data
             
         except Exception as e:
@@ -145,19 +189,11 @@ class StockConsumer(AsyncWebsocketConsumer):
 
     async def disconnect(self, close_code):
         logger.info(f"Client disconnecting with code: {close_code}")
-        await self.cleanup_tasks()
-
-    async def cleanup_tasks(self):
-        logger.info("Cleaning up tasks...")
         if self.update_task:
             self.update_task.cancel()
-            try:
-                await self.update_task
-            except asyncio.CancelledError:
-                pass
             self.update_task = None
-        self.current_symbol = None
-        logger.info("Tasks cleaned up")
+        self.subscribed_symbols.clear()
+        logger.info("Cleanup complete")
 
     async def receive(self, text_data):
         try:
@@ -179,28 +215,34 @@ class StockConsumer(AsyncWebsocketConsumer):
                 
                 logger.info(f"Processing subscription for symbol: {symbol}")
                 
-                # If it's the same symbol, ignore
-                if symbol == self.current_symbol:
+                # If already subscribed, ignore
+                if symbol in self.subscribed_symbols:
                     logger.info(f"Already subscribed to {symbol}")
                     return
                 
-                # Clean up existing tasks
-                await self.cleanup_tasks()
-                
-                # Set new symbol and start updates
-                self.current_symbol = symbol
+                # Add to subscribed symbols
+                self.subscribed_symbols.add(symbol)
                 logger.info(f"Starting updates for {symbol}")
                 
                 # Get initial quote immediately
                 quote_data = self.get_quote(symbol)
                 if quote_data:
                     await self.send(text_data=json.dumps(quote_data))
+                
+                # Start the update task if not running
+                if not self.update_task:
+                    self.update_task = asyncio.create_task(self.send_periodic_updates())
+
+            elif data['type'] == 'unsubscribe':
+                symbol = data.get('symbol')
+                if symbol in self.subscribed_symbols:
+                    self.subscribed_symbols.remove(symbol)
+                    logger.info(f"Unsubscribed from {symbol}")
                     
-                    # Only start periodic updates if market is open
-                    if quote_data.get('isLive', False):
-                        self.update_task = asyncio.create_task(self.send_periodic_updates())
-                    else:
-                        logger.info(f"Market is closed. Using cached data for {symbol}")
+                    # If no more symbols, cancel the update task
+                    if not self.subscribed_symbols and self.update_task:
+                        self.update_task.cancel()
+                        self.update_task = None
                 
         except json.JSONDecodeError as e:
             logger.error(f"Invalid JSON received: {text_data}")
@@ -214,48 +256,38 @@ class StockConsumer(AsyncWebsocketConsumer):
             }))
 
     async def send_periodic_updates(self):
-        logger.info(f"Starting periodic updates for {self.current_symbol}")
+        """Send periodic price updates for all subscribed symbols"""
+        logger.info("Starting periodic updates for all symbols")
         try:
             while True:
                 try:
-                    if not self.current_symbol:
-                        logger.warning("No current symbol, stopping updates")
-                        break
-                    
-                    # Check market status
+                    # Get market status once for all symbols
                     market_status = self.get_market_status()
-                    if not market_status['is_open']:
-                        logger.info("Market closed, stopping periodic updates")
-                        break
-                        
-                    # Calculate time to wait
-                    current_time = time.time()
-                    time_since_last = current_time - self.last_quote_time
-                    
-                    # Wait until cooldown period has passed
-                    if time_since_last < self.quote_cooldown:
-                        await asyncio.sleep(self.quote_cooldown - time_since_last)
-                    
-                    # Get and send quote
-                    quote_data = self.get_quote(self.current_symbol)
-                    if quote_data:
-                        self.last_quote_time = time.time()
-                        await self.send(text_data=json.dumps(quote_data))
-                    
-                    # Sleep for cooldown period
-                    await asyncio.sleep(self.quote_cooldown)
-                    
+                    logger.info(f"Market status: {market_status}")
+
+                    # Update all subscribed symbols
+                    for symbol in list(self.subscribed_symbols):
+                        try:
+                            quote_data = self.get_quote(symbol)
+                            if quote_data:
+                                logger.info(f"Sending update for {symbol}: {quote_data}")
+                                await self.send(text_data=json.dumps(quote_data))
+                        except Exception as e:
+                            if "API limit reached" in str(e):
+                                logger.warning(f"API rate limit hit for {symbol}, will retry in next interval")
+                            else:
+                                logger.error(f"Error getting quote for {symbol}: {str(e)}")
+
+                    # Sleep for the update interval
+                    sleep_time = self.update_interval if market_status['is_open'] else 60
+                    logger.info(f"Sleeping for {sleep_time} seconds")
+                    await asyncio.sleep(sleep_time)
+
                 except Exception as e:
                     logger.error(f"Error in update loop: {str(e)}")
-                    if "API limit reached" in str(e):
-                        logger.warning("API rate limit hit, waiting 60 seconds...")
-                        await asyncio.sleep(60)  # Wait longer on rate limit
-                        continue
-                    await asyncio.sleep(self.quote_cooldown)  # Wait on other errors
+                    await asyncio.sleep(self.update_interval)
                     
         except asyncio.CancelledError:
-            logger.info(f"Periodic updates cancelled for {self.current_symbol}")
+            logger.info("Periodic updates cancelled")
         except Exception as e:
-            logger.error(f"Error in periodic updates: {str(e)}")
-        finally:
-            logger.info(f"Stopping periodic updates for {self.current_symbol}") 
+            logger.error(f"Error in periodic updates: {str(e)}") 

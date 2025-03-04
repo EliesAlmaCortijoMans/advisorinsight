@@ -1,135 +1,172 @@
 type PriceUpdateCallback = (data: any) => void;
 
 export class StockWebSocket {
-    private static instance: StockWebSocket | null = null;
+    private static instance: StockWebSocket;
     private ws: WebSocket | null = null;
-    private currentSymbol: string | null = null;
-    private updateCallback: PriceUpdateCallback | null = null;
+    private callbacks: Map<string, PriceUpdateCallback> = new Map();
     private reconnectAttempts = 0;
     private maxReconnectAttempts = 30;
-    private reconnectTimeout = 2000; // Start with 2 seconds
-    private isReconnecting = false;
+    private reconnectTimeout: number = 1000;
+    private subscribedSymbols: Set<string> = new Set();
+    private lastMessageTime: number = 0;
+    private messageTimeout: number | null = null;
+    private reconnectTimer: number | null = null;
 
-    private constructor(callback: PriceUpdateCallback) {
-        this.updateCallback = callback;
-    }
+    private constructor() {}
 
-    public static getInstance(callback?: PriceUpdateCallback): StockWebSocket {
-        if (!StockWebSocket.instance && callback) {
-            StockWebSocket.instance = new StockWebSocket(callback);
-        } else if (!StockWebSocket.instance) {
-            throw new Error('StockWebSocket must be initialized with a callback first');
+    static getInstance(): StockWebSocket {
+        if (!StockWebSocket.instance) {
+            StockWebSocket.instance = new StockWebSocket();
         }
         return StockWebSocket.instance;
     }
 
-    public connect(): void {
-        if (this.ws?.readyState === WebSocket.OPEN) {
-            console.log('WebSocket already connected');
-            return;
-        }
+    setUpdateCallback(symbol: string, callback: PriceUpdateCallback) {
+        this.callbacks.set(symbol, callback);
+    }
 
-        console.log('Connecting to WebSocket...');
+    removeUpdateCallback(symbol: string) {
+        this.callbacks.delete(symbol);
+    }
+
+    connect() {
+        if (this.ws?.readyState === WebSocket.OPEN) return;
+
         try {
             this.ws = new WebSocket('ws://localhost:8000/ws/stock/');
-            
+
             this.ws.onopen = () => {
                 console.log('WebSocket connected');
                 this.reconnectAttempts = 0;
-                this.reconnectTimeout = 2000;
-                this.isReconnecting = false;
-                
-                // Resubscribe to symbol if there was one
-                if (this.currentSymbol) {
-                    this.subscribeToSymbol(this.currentSymbol);
-                }
-            };
-
-            this.ws.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    console.log('Received WebSocket message:', data);
-                    
-                    if (data.error) {
-                        console.error('WebSocket error:', data.error);
-                        return;
-                    }
-
-                    // Only process price updates for the current symbol
-                    if (data.symbol === this.currentSymbol && this.updateCallback) {
-                        this.updateCallback(data);
-                    }
-                } catch (error) {
-                    console.error('Error parsing WebSocket message:', error);
-                }
+                this.reconnectTimeout = 1000;
+                this.resubscribeToSymbols();
             };
 
             this.ws.onclose = () => {
-                console.log('WebSocket closed');
-                this.ws = null;
-                
-                if (!this.isReconnecting) {
-                    this.reconnect();
-                }
+                console.log('WebSocket disconnected');
+                this.handleDisconnect();
             };
 
             this.ws.onerror = (error) => {
                 console.error('WebSocket error:', error);
-                this.ws?.close();
+                this.handleDisconnect();
             };
+
+            this.ws.onmessage = (event) => {
+                this.handleMessage(event);
+            };
+
         } catch (error) {
-            console.error('Error creating WebSocket:', error);
-            this.reconnect();
+            console.error('Error connecting to WebSocket:', error);
+            this.handleDisconnect();
         }
     }
 
-    private reconnect(): void {
-        if (this.isReconnecting) {
-            return;
-        }
+    private handleMessage(event: MessageEvent) {
+        try {
+            const data = JSON.parse(event.data);
+            this.lastMessageTime = Date.now();
+            
+            if (this.messageTimeout) {
+                clearTimeout(this.messageTimeout);
+            }
+            
+            this.messageTimeout = window.setTimeout(() => {
+                console.log('No messages received for 10 seconds, reconnecting...');
+                this.reconnect();
+            }, 10000);
 
-        this.isReconnecting = true;
-        
-        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-            console.log('Max reconnection attempts reached, resetting...');
-            this.reconnectAttempts = 0;
-            this.reconnectTimeout = 2000;
-        }
+            if (data.error) {
+                console.error('WebSocket error:', data.error);
+                return;
+            }
 
-        console.log(`Attempting to reconnect (${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})...`);
-        
-        setTimeout(() => {
-            this.reconnectAttempts++;
-            this.reconnectTimeout = Math.min(this.reconnectTimeout * 2, 30000); // Max 30 seconds
-            this.connect();
-        }, this.reconnectTimeout);
+            if (data.symbol && this.subscribedSymbols.has(data.symbol)) {
+                const callback = this.callbacks.get(data.symbol);
+                if (callback) {
+                    callback({
+                        ...data,
+                        type: 'price_update'
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Error handling WebSocket message:', error);
+        }
     }
 
-    public subscribeToSymbol(symbol: string): void {
-        this.currentSymbol = symbol;
+    private handleDisconnect() {
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+        }
         
-        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-            console.log('WebSocket not ready, connecting...');
-            this.connect();
-            return;
+        if (this.messageTimeout) {
+            clearTimeout(this.messageTimeout);
         }
 
-        console.log('Subscribing to symbol:', symbol);
-        this.ws.send(JSON.stringify({
-            type: 'subscribe',
-            symbol: symbol
-        }));
+        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+            console.log(`Reconnecting in ${this.reconnectTimeout / 1000} seconds...`);
+            this.reconnectTimer = window.setTimeout(() => {
+                this.reconnectAttempts++;
+                this.reconnectTimeout = Math.min(this.reconnectTimeout * 1.5, 30000);
+                this.connect();
+            }, this.reconnectTimeout);
+        } else {
+            console.error('Max reconnection attempts reached');
+        }
     }
 
-    public disconnect(): void {
-        console.log('Disconnecting WebSocket');
+    private reconnect() {
+        if (this.ws) {
+            this.ws.close();
+        }
+        this.connect();
+    }
+
+    private resubscribeToSymbols() {
+        this.subscribedSymbols.forEach(symbol => {
+            this.sendSubscription(symbol);
+        });
+    }
+
+    private sendSubscription(symbol: string) {
+        if (this.ws?.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify({
+                type: 'subscribe',
+                symbol: symbol
+            }));
+        }
+    }
+
+    subscribeToSymbol(symbol: string, callback: PriceUpdateCallback) {
+        this.subscribedSymbols.add(symbol);
+        this.setUpdateCallback(symbol, callback);
+        this.sendSubscription(symbol);
+    }
+
+    unsubscribeFromSymbol(symbol: string) {
+        if (this.ws?.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify({
+                type: 'unsubscribe',
+                symbol: symbol
+            }));
+        }
+        this.subscribedSymbols.delete(symbol);
+        this.removeUpdateCallback(symbol);
+    }
+
+    disconnect() {
+        this.subscribedSymbols.clear();
+        this.callbacks.clear();
+        if (this.messageTimeout) {
+            clearTimeout(this.messageTimeout);
+        }
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+        }
         if (this.ws) {
             this.ws.close();
             this.ws = null;
         }
-        this.currentSymbol = null;
-        this.reconnectAttempts = 0;
-        this.reconnectTimeout = 2000;
-        this.isReconnecting = false;
     }
 } 

@@ -8,6 +8,22 @@ export interface EarningsCall {
   actualEPS?: number;
 }
 
+export interface Company {
+  symbol: string;
+  name: string;
+  status: 'upcoming' | 'ongoing' | 'past';
+}
+
+export interface StockData {
+  symbol: string;
+  price: number | null;
+  change: number | null;
+  percentChange: number | null;
+  isLive: boolean;
+  nextMarketOpen: number | null;
+  lastUpdate: number;
+}
+
 export interface ThingToListenFor {
   topic: string;
   context: string;
