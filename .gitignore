@@ -8,4 +8,4 @@ env.bak/
 venv.bak/
 dump.rdb
 backend/advisors/
-backend/data/
+

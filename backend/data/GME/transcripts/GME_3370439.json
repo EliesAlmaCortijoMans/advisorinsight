@@ -1,0 +1,589 @@
+{
+  "id": "GME_3370439",
+  "participant": [
+    {
+      "name": "Jenna Goldstein",
+      "description": "executive",
+      "role": "executive"
+    },
+    {
+      "name": "Fabrice Haiat",
+      "description": "executive",
+      "role": "executive"
+    },
+    {
+      "name": "Matthew Goodfriend",
+      "description": "executive",
+      "role": "executive"
+    }
+  ],
+  "quarter": 0,
+  "symbol": "GME",
+  "time": "2024-01-16 16:31:00",
+  "title": "NRF 2024: Retail\u2019s Big Show",
+  "transcript": [
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "Well, nice to meet everyone. Thanks for being here. My name is Jenna Goldstein, I lead the sales team here in the U.S. at YOOBIC. I have the pleasure today to be joined by my CEO Fabrice and Matt from the GameStop team, really exciting session. I had the pleasure of onboarding the GameStop team a few years ago and really excited to share their story and Matt leads their tasking operations and learning teams, and he's going to be sharing a little bit more about YOOBIC and also how they really centralized and simplified the experience for the store teams and how they're leveraging AI to do that. So it should be a very exciting session.\r\nI'll let Fabrice, Matt, if you want to give a quick intro, we can kick it off."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Fabrice Haiat",
+      "speech": [
+        "So I'm Fabrice, I'm the CEO of the company. Very happy to be here and share with you what we are doing at YOOBIC, how we've worked with GameStop and where we are investing on AI capabilities."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Matthew Goodfriend",
+      "speech": [
+        "I got nothing special to say so we're good."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "All right. Well, great. Well, just a little bit about YOOBIC before we hop in to the session for those that aren't familiar. So really at YOOBIC, we believe, is the success of your best stores, what's behind that, your store teams. However, a lot of times, retailers, it's very tough for the store associates. You can see on the left, I'm seeing smiling faces in the audience probably because this is maybe what your tech stack looks like today. There's many different tools and systems in place, whether that's other applications, point solutions, e-mails, teams, which makes it very complex. And even more importantly, the systems are communicating to each other, right?",
+        "And then on the right-hand side, typically, what you see is there's really good BI or POS tools that are giving you guys data on sales performance. But if a metric is dropping, it's really hard because of these disparate systems really identify why that is. And that's really where YOOBIC comes in and where we're focused on.",
+        "So really at the intersection of how can we drive operational excellence and gives leaders like yourself and the audience really good visibility on what's actually happening at the store. But on the flip side, and a lot of what Matt is going to talk about today is really around what that means for the employee, how do we drive a better experience for them and how do we create an engaging environment where they want to come to work in, and I feel like they're part of the team.",
+        "And the way that we do that is in one simple easy-to-use application that looks and feels like social media that they log into in their shift, and they really know what's expected to them and how to run their days. We'll be talking a lot about some of these use cases today that Matt and his team are focused on, specifically around communication, so employee recognition, internal or urgent communications and things like tasking and working where there's more recurring procedures like task management, around opening and closing checklists, visual merchandising execution and then all the way to learning.",
+        "So singing through not just what this means when an employee starts day 1 and how they're onboarded, but how do we continuously train and onboard them throughout their journey out of brand. So lots of great stories that we can share and many different clients that we work with and excited to share a little bit more about the GameStop team today. So let's pop in.",
+        "Just a little bit about the GameStop project, and Matt will be sharing many more things in a moment, but they came on board, though they went live in March 2023. We'll talk a little bit about the implementation process around kind of 4 to 5 months to across all 3,000 of their stores, also in their distribution centers as well. So really thinking of this whole experience is not just what does this mean for the store, but across the connected enterprise, whether that's HQ distribution center and field. And I know before you came to YOOBIC, you were using many different point solutions. So we're excited to share a little bit about how kind of bringing those all together what that really meant.",
+        "And one other thing, thinking about what this not just means for the store manager, but everyone in the store, so 22,000 users live in the platform and how to really drive a lot of that connectivity."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "So enough from me. Let's hear a little bit from Matt and the team. So Matt, maybe you can share a little bit more, what were you looking to solve when you came to YOOBIC? What kind of prompted an exploration in general?"
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Matthew Goodfriend",
+      "speech": [
+        "Yes. I think it really comes down to the slide that was earlier, right? Disconnected tech stack, just a variety of different solutions that did not necessarily apply or were streamlined in any way. So the ability to bring all of those things together into one seamless integration and something that it's an all-in-one shop, right? It's that one spot.",
+        "We struggled with things like real-time analytics, and actually the ability to make those actionable in any real way. So just anything that we couldn't -- we were just limited, we were in the past unfortunately. So..."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "And a lot of your associates are in the future with all the different and exciting games that are going on, so bringing those 2 together? Interesting. And what were some of the overall kind of objectives or how are you going to think about measuring success before you brought on the tool like this?"
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Matthew Goodfriend",
+      "speech": [
+        "Really from the beginning, we didn't even look at any kind of like real KPI type metrics. So it was just how do we improve the experience? So with prior tools, it was -- it's clunky, it was almost like an e-mail server. Tasking was limited. Visibility for our district and regional level was limited to, is it done? Or is it not done? So no real detail about how long did it take? Or where do they struggle along the way? What was their feedback along the way as well. So the employee experience was really at the forefront of what we were doing with everything in the platform.\r\nOn the back end, yes, we had to make sure that there is operational efficiency scores in there as well. So the simplification of what we were using. We had one platform for tasking and communications and a separate platform for learning. Now everything is in one place."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "And Fabrice, is that kind of similar to what we're hearing across many of our clients that we're talking to every day?"
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Fabrice Haiat",
+      "speech": [
+        "Yes. We hear that all the time, the way of working, the different systems that the store employee need to juggle between. We released a survey a few months ago. We talked to 1,000 store associates, and they have to juggle, on average, between 12 different apps during their day. It's making their lives not so easy. And they're losing so much time which could be dedicated to customer service.\r\nIn an environment where there is massive pressure on margin, wage had increased, cost of real estate is increasing, you need to find efficiency. So quality of the customer experience is becoming the center of and the focus for many of our clients.\r\nOne of the big challenges we hear is employee onboarding. Onboarding continuous training is essential. And if you don't do that well, you might use your best employees or even worse, you might not deliver the brand promise in the store. So this is essential.\r\nThe second thing that we are hearing a lot is the number of systems that they are using. So actually, we think that simplification, making the life of the store associate easier will enable them to deliver a better service and to perform at their best. This is the core of what we're doing at YOOBIC."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "And Matt, I know when you were looking at -- obviously launched a very extensive RFP in the market, like what were some of the things, I mean, you say, hey, YOOBIC is the right kind of partner and maybe share some things with the audience that they're kind of going through a similar evaluation."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Matthew Goodfriend",
+      "speech": [
+        "Yes. I think for us, our brand is very important. It's -- we are very well known in the retail industry. So being able to have a customized platform, something that speaks to our employees was very, very important to us.\r\nI mean, you can see in some of the imagery up on the slides there that our leaderboard is truly a leaderboard. It's styled like an arcade leaderboard screen. So having everything in one place, the customization, the real-time analytics. And then from a learning standpoint, things being score compliant as well because we had our prior platform was essentially just glorified PDFs and quizzes. But now the actual interactivity and the ability to implement real learning management tools and have a true learning system and not just a read this picture and then take a quiz was really important to us."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "Yes. And Fabrice, anything you want to add from a just overall GameStop and what's meant from the brand to come on board?"
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Fabrice Haiat",
+      "speech": [
+        "Yes. Yes. First of all, so I have a 15 years old son and we're going to GameStop for every big new video game coming on the market. So this is a place where we have fun. That's for me personally a great journey to be able to work with Matt and his team.\r\nGameStop is a household name and iconic brand in the market. And what we realized during the process is that we were sharing the same passion about enhancing the employee experience and looking at the customer experience through the length of the employee experience. So it's been a great journey so far, and very happy to see what's coming next."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "So we had -- about 2 months ago, we went down to -- some folks from the YOOBIC team went down to GameStop Store Leader Conference, where they were talking about the launch of YOOBIC and walking through some different key areas that they're focusing on for 2024. So we actually had a chance to create a video with some of the folks on the team. So I wanted to share that today to be able to hear live from some of the folks there.\r\n[Presentation]"
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Matthew Goodfriend",
+      "speech": [
+        "That's the first time that's seen publicly, isn't it?"
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "Yes. It's true. The live launch. So my biggest question is, did you participate in the talent show?"
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Matthew Goodfriend",
+      "speech": [
+        "I hope -- well, no, sorry, I hosted the cosplay contest, I did not participate in the talent show."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "Okay. So next year?"
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Matthew Goodfriend",
+      "speech": [
+        "No. I'm a behind the scenes guy, not a..."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "So tell us a little bit more about why you decided to launch about the conference, like what were some of the key use cases that you were trying to drive when it comes to -- you have over 3,000 stores globally, obviously, many -- I think we recorded there's over 25,000 users, over 10,000 activities happening in the platform on a given month, like how does that -- what impact is that having on connectivity and kind of driving -- fostering a better culture across the brand?"
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Matthew Goodfriend",
+      "speech": [
+        "Yes. Renee said in the video that the ability to get an answer within the day, if not within the hour is very, very, very crucial for us. We set out to do this to, number one, create bridges between our store support center and the stores because they are the most important thing that we have. I still have to convince the rest of the marketing team, but our associates are our best marketing. They're the ones that are on the front lines, and they're the ones that are having an impact on a day-to-day basis. So the communication was just absolutely crucial to create that through line back and forth.\r\nThere's a feature within YOOBIC called, questions, where people can go almost quora-style and ask questions and crowdsource the answers to things. It's built so much to an efficiency for us, too, because we have so many knowledgeable associates that I don't have to be the one that answers every single one of those questions. We can source that from people who are knowledgeable, people who spent a long time in stores, people who maybe just read through the procedure manual and they know the answer, and we can go in and verify those answers and say, yes, this person is knowledgeable, this person does know what they're talking about. So that's been just game changing. That's would be funny, but..."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "And I think that's how you help drive adoption in the tool, right, where it's not just top-down but bottom up and have -- giving -- nominating ambassadors to help you answer the questions and giving them some ownership over the tool and what you're doing.\r\nTalk to us about some of the other use cases that are living in the platform and you're seeing on the screen some examples about today."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Matthew Goodfriend",
+      "speech": [
+        "Yes. So we've got everything from -- so we mentioned GameStop has talent. Everything GameStop has talent except for the actual on-stage performance as was done through YOOBIC. So the submissions of content, the voting on content, the feedback around the content of maybe they shouldn't go out there into the public -- everything was done on the platform. So that's kind of -- I mean that's a small use case in the grand scheme of things."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "But it highlights overall how some of the different touch points that you're engaging, not just top-down tasking, for example."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Matthew Goodfriend",
+      "speech": [
+        "Yes. I think and it continues to go back to that community, that connection, growing all those different things. I used the phrase when we kind of set off into this, I use the phrase a lot to give people a place to communicate professionally so they don't have to go somewhere and communicate unprofessionally."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "I know what you're referencing."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Matthew Goodfriend",
+      "speech": [
+        "There's a certain message board that's kind of infamous through our company. So giving them a place to actually talk to their peers, talk to the office and create those connections to.\r\nFrom a tasking standpoint, we've been able to do everything from revitalize and refresh and recreate our store visits, store audits from a district manager, regional director perspective, working on loss prevention audits that have unique logic built within them so that it's not just yes or no, they did this thing, but they did this, and this is the impact, and these are the things that I need them to do because before they were using an Excel spreadsheet and exporting it to PDF and e-mailing. Now it's all done right through the platform."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "Yes. And how does this tie into some of the learning and training components?"
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Matthew Goodfriend",
+      "speech": [
+        "Yes. I mean I mentioned earlier that we didn't have a true LMS, right? It's a PDF. It's an image with some text on it and then they do a quiz. The unique tools that we can use within the platform just added different layer to things. I mentioned they can ingest SCORM content so that we can create something in an external offering tool and then bring it in.\r\nBut with our business, there's an importance around agility and efficiency with things too. So maybe I don't have the time to put 15, 20, 25 hours into something externally, and I need to create it in a quick manner, but something that's going to still look very good. And so being able to create quickly get results quickly and then look at analytics quickly around that content has been absolutely important.\r\nWe have some secondhand laws within California, where because we buy product back for people, there are certain laws that have to be followed when we were able to deploy training around it, but then review the questions, look for what are the questions that people are missing the most commonly? Is it because of the question? Is it because of the training? Is it because of how things are phrased? And make adjustments in tweaks in real time so that we can see improvements, too."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "Yes, I think you were saying there was one question that was constantly missed and as opposed to embarking that user as maybe under trained, you went back as a management team and said, how can we redo that question to make it make more sense for the user because maybe it's on our side. So some of those kind of agile insights? Yes."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Matthew Goodfriend",
+      "speech": [
+        "And something as simple as there are 4 correct answers in parenthesis."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "There you go. And what has this meant from the HQ side? So you talked a lot about the impact from the store. How are you leveraging this from an HQ side?"
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Matthew Goodfriend",
+      "speech": [
+        "Yes. I mean I keep talking about the analytics piece, but we -- before we had, is it done? Or is it not done? Now we have is it done? When was it done? How was it done? In what manner was it done? All sorts of different things in there, too. And not just from like a pure data perspective, but the ability to do things like submit photos, annotate them in real time and get those corrections made within our stores, too. And we can see all that from an HQ perspective, but really it's the frontline users who are using this the most, and I think that's really important."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Fabrice Haiat",
+      "speech": [
+        "One thing we should mention here because Matt is being very humble. This is a deployment for 22,000 people that has been done in 4 months. So this is -- when you think about it, this is pretty massive.\r\nThe second thing I think I've seen with GameStop is when there is a new game coming into the market, being ready on time in all 2,200 stores is essential because each day you're losing of sales might be a day that you will never recover. So putting the entire network in sync with the priority of the business is essential. And it's not easy to achieve if you don't have a tool for that, right?"
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Matthew Goodfriend",
+      "speech": [
+        "Yes."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "Fabrice, I know a topic that you mentioned a lot earlier was around centralization. This idea of a super app and bringing tools together in one platform. Can you tell me a little bit more about that?"
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Fabrice Haiat",
+      "speech": [
+        "Yes, we've been thinking a lot about recent Gartner publication around the value of the super app. So Gartner is defining a super app as being a Swiss army knife with many tools that serve a purpose. So this is basically what we are building at YOOBIC. We want to be an all-in-one solution for the front line employee experience and specifically designed for retail.\r\nWhy do we think it's important? For 3 reasons: Consolidation of tool, number one; building a unified ecosystem; and third, simplifying the user experience. The obvious impact of a super app is the cost impact because you're going to have into the same platform, the learning, the task, the communication. Can you go back to the previous plan? You're going to have the learning that has the communication under the same roof, number one. You're going to simplify the maintenance of the interface between the different systems, and you're going to facilitate the onboarding of the user. So cost saving with the super app is an obvious impact.\r\nBut where I really -- I'm really excited about is how we can leverage a super app to build new business case. And we have 2 main concepts in the app. The first one is called automation, the second one is called orchestration. So this is how you build in the app, a sequence of event to deliver a business process.\r\nSo here on the slide, we see an example of a product launch process. The first step will be sharing news in the news feed so that everyone in the store know about what's happening next and what is the product launch about. The second sequence of event might be a training to make sure that everyone is aware of the characteristic of the new product and how to sell it with maybe a quiz. The third set might be a task so that in the store, we are executing the visual merchandising to be ready for the launch. And maybe a few days before the launch, you want to do a reinforcement training.",
+        "So the beauty of having that into the same app is you can build those processes and then compare the execution of the processes with sales data and see the correlation. And this is where we're striving at YOOBIC by helping our clients achieving better business output."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "So Matt, based on some of the points that Fabrice shared around bringing everything together and orchestrating the right types of content at the right time to the end user. Can you talk to us a little bit about some of the results since going live and what that's meant?"
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Matthew Goodfriend",
+      "speech": [
+        "Yes. So I think these are up to date, right? So 99% of sites active. I think there's only one site that's inactive and it's because they're not allowed to use it because it's a warehouse. They're not allowed to use it on their personal device, they have some other things there, too. So -- but yes, it's been really -- I get -- hate using the term, but really game changer, right? So it's been just completely different every single day, and we're learning more every day, too, about how can we take things and integrate them and orchestrate them and fill out that kind of full flow of content.\r\nThe customer success team is -- I mean, the -- I think they like me, but also are bothered by me because we're always trying to like kind of push ahead and with us being sort of a tech-focused company, we're on the cutting edge of a lot of different things. And so we're encouraging -- I hope are encouraging. We're hoping that we're encouraging YOOBIC to continue to grow and do things that are going to help us, but they're also just plain helping us in the business, too. So yes, just a ton of activity and people in there every single day.\r\nIt's like it's almost a good thing when people talk about the platform because it tells -- even if they say like, I don't like this thing, but you were in it. So that's good."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "That means you're engaging with it at some way. Yes. And just more broadly, the kind of 3 main buckets when we think about impact and for folks in the audience that are maybe thinking about, hey, is this the right project this year for our teams. Those kind of 3 key areas that we're typically working with retailers on and seeing the biggest impact. So operational efficiency, sales and employee experience.\r\nSo what this means from an operational efficiency perspective really comes down to time savings. So we're with a very large pharmacy retailer. They have run 2,500 stores globally. They did a very large time work study before they came to YOOBIC and one of their biggest thing is they were spending way too much time. Their associates were reading and digesting and absorbing SOPs. So these were the job aids and documents every single day.\r\nSo what they saw within YOOBIC is they're receiving 65% of their time actually every single day going through and reading those SOPs, which obviously equates into payroll hours that they can either cut or reallocate to higher-value tasks.\r\nThe second one was around -- is that we typically see is around sales. So one of the biggest metrics for many retailers is product stock clearance. So for example, this retailer, similar to GameStop, almost a shoe retailer, has big Nike launches that they needed. They would launch a shoe and they needed to make sure it was cleared and sold within the first go around because the second go around, they would have to mark it down. And obviously, the margins are different there. So thinking through how they can help their teams get ready for that launch and really make sure they're knowledgeable and aware of what needs to be done and it's actually executed correctly, and we're seeing that impact conversion rate as well.\r\nAnd the last one is probably my most favorite is around employee experience because at the end of the day, this is really what the tool is bringing is how do we make the lives of the teams easier. So typically, we're seeing around an associate spend around one hour per week on training and what this means is not in one go about, but every single day, they're logging into the platform and being able to say, hey, here's 3 to 5 minutes of the latest thing that HQ wants me to train about, about the new collection, for example, and how that can be spread over a week period as opposed to in one bet. So just a few different areas, whether it's from cost reduction or sales and revenue driving increases that we're seeing across the board.\r\nSo now to the most exciting part, which is what's next. So the past 6 months, was 6 months or so, I would say, we -- so we had GameStop in our beta program to test our new YOOBIC NEO, which is officially launching to the wider audience today or the past few days at NRF which is very exciting. We've been working on it for over 1 year, 1.5 years at this point now. We ask GameStop because they're always in a good way, challenging us to be a part of this beta, and I'm going to let Fabrice share a little bit more about the wider vision with AI that we have, and then Matt share about his experience using the tool."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Fabrice Haiat",
+      "speech": [
+        "Yes. We are very exciting to launch YOOBIC NEO today at the NRF. So what is YOOBIC NEO? Think of it as YOOBIC on steroid. It's a suite of tools to better empower your frontline team and we are bringing AI in all aspects of the platform; training, learning task and communication. We are expecting AI to help with productivity and with personalized experience at each level of the organization. So a store associate, a store manager, a regional manager will have a different experience into the tool.\r\nWe've been working on YOOBIC NEO for the past 12 months. It's a massive investment in terms of R&D, product team, we've been working with our clients. So everything we're going to show you today are things that are in production with our clients.\r\nWe're going to focus on 3 capabilities today. The first one is content creation, how can you support your team to build content easily whether it's a training course because you're launching a new product and you want to be ready in no time, the task that you want to create within the platform. We're going to show you how we are supporting a store associate with new assistance and how we are providing a safe place to ensure peers to peer communication with new moderator."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "So I wanted to share a little bit of the background, if we start with the first one around content creation. So what we're seeing on the left is a typical retailer that comes to us where this -- for this particular retailer was trying to increase units per transaction. And when they map their units per transaction, with the actual engagement in YOOBIC, you can see a positive correlation. So more engagement in YOOBIC was driving an increase in units per transaction.\r\nThe challenge is that how do you get more engagement in YOOBIC and that means you have to create more content. And obviously, retail teams at HQ are very slim and content is king, but they don't always have the resources to do it. And what you're seeing on the right is actually almost the kind of sweet spot in terms of content creation, if they can create around 1 piece of content per week as opposed to per month, there's almost a 2x jump in terms of what that means from an adoption perspective. So we really looked in the data to say, how can we make content easier to be published on the platform and Fabrice is going to share a little bit more about that."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Fabrice Haiat",
+      "speech": [
+        "Yes. So that's the first capability that we call neo creators. So you can take any document, PDF, SOPs, power points, upload that to YOOBIC NEO and YOOBIC NEO will do the work for you, and we bring your content to life, creating news, task force, quizzes, videos.\r\nSo let's see a real example. This is a PDF document, 22 pages of SOPs from one of our clients. So what we're going to do is very simple. We're going to go into the back end of the solution. Just upload these PDF documents. We can prompt, we can give some instruction to YOOBIC NEO about the length of the content we want YOOBIC NEO to create, the number of questions and in less than a minute, I'm going to have my content ready to be shared with my team and a quiz to test their knowledge.\r\nHere we go, another content is available. If you have already illustration in your document, it will use the illustration of the document. If you don't, we're going to create with AI as well as some illustration for the content that have been created.\r\nThe objective of AI is not to do 100% of the job. It's to do the heavy lifting. So here, 90% of the job is ready, and now the learning and development team can do the adjustment to enhance the content and to make it ready for the team.\r\nThe second example that I like a lot is a lot of our clients are starting to do video training content. So here, we're going to use this training video and AI is going to listen to the video and build another training content in less time that you need to -- just to listen to the video. So we're going to have a quiz immediately available for the store team that you can dispatch to your teams.\r\nImagine the time saved here. From the implementation we've done, we are saving up to 75% of the time when it comes to content creation.\r\nSo the third example here is new assistance. So you are in a store, you might have questions about the latest uniform policy or the product return. And you have 200 pages to find the answer, you don't have time for that. So what we're doing here is we are training a chat bot to be able to answer to the store team in no time. So either you are on mobile, on desktop, you can ask the neo bot what is the current dress code policy, it will give you a short answer and point you to the documents -- the reference document, and people will be able to vote for the right answer. So YOOBIC NEO will learn from the feedback and enhance the quality of the answer over time."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "And this is a really big one that we see a lot of support tickets going to teams of, hey, I can't -- how do I adjust my password or hey, how do I submit a ticket to log time PTO. Ask the chat bot, it will answer for you. So kind of helping them self serve themselves as opposed to needing to use you guys as a resource."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Fabrice Haiat",
+      "speech": [
+        "It's like having a personal assistant in your pocket, but at scale for all your store employees basically."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "Great. So then the last one that we wanted to talk about was YOOBIC moderator. So what we hear a lot from store teams or from HQ actually, is they're afraid to open up the entire news feed or access to YOOBIC to everyone to be able to generate content because, obviously, sometimes you might have a disgruntled employee, and you don't know what they're saying.\r\nSo what this is going to do is it's going to analyze the language and texts within the platform? And if associate post something that's potentially controversial or not within brand standards, it's going to alert the admins that before it's posted, and it's going to ask the associate, do they really want to post this content. So it's just a way to kind of make sure that everything that's posted is on brand and within standards to your organization."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Fabrice Haiat",
+      "speech": [
+        "And super effective here is understanding the text within the context, that's where AI is super powerful."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "So lots of exciting things that have been in the works for many, many months. So kudos to our product team on that. Maybe, Matt, can you share a little bit more about why you decided to be part of the beta and what some of the results have been so far?"
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Matthew Goodfriend",
+      "speech": [
+        "Yes, we talked a little bit earlier about kind of we push you guys a little bit. But we really want to consistently be on the cutting edge and using the latest and the greatest technologies to provide the best experience to our employees and improve the HQ experience as well. So that's kind of what drove us into working with NEO plus Fabrice is good at convincing me to do things."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "And what kind of impact do you think it's going to have for your teams kind of moving forward?"
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Matthew Goodfriend",
+      "speech": [
+        "The biggest thing we're seeing is efficiency from my team."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "The content creation side."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Matthew Goodfriend",
+      "speech": [
+        "Yes. We've got the use case around content creation for learning upon the screen right now, being able to take something like a document and generate a course that may have taken us 15 to 20 hours to work on and actually build in a proper L&D format, we're now able to do a significant fraction of the time and then go back in and just make some slight tweaks on it. I know Fabrice mentioned it, but the heavy lifting was done, and then we had maybe 5% of the work to go back in. Some few corrections, adjusting pictures, things like that."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "Yes. Which is good because you can even tailor it more to brand standards, but the majority of the admin work is done.\r\nI think it's really interesting. Maybe you can share how you're leveraging the NEO assistant feature because you're first brand of ours to be leveraging it with the chat bot in this way, and I think it's a really interesting use case that could be leveraged across other retailers in the audience."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Matthew Goodfriend",
+      "speech": [
+        "Yes. So Fabrice mentioned a store operating procedures of around 2,000 pages, ours is 6,000-plus."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "6,000 SOP pages?"
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Matthew Goodfriend",
+      "speech": [
+        "Yes. We have a very complex business. I mean we're not like the standard retailer where it's we sell things, we buy things and we sell things. So there's a lot of complexity when that comes into play. So the ability to have a resource where we can get a quick answer for somebody is very, very, very important.\r\nAnd on the flip side of that, too, I think when we did some initial testing with the documentation, we were about 98% accurate with the questions and that 2% wasn't because of something that NEO did. It was something that we didn't have in the documentation and we didn't know it wasn't in the documentation."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "So it actually served up questions that you weren't covering in the materials?"
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Matthew Goodfriend",
+      "speech": [
+        "Right. So we're able to kind of fact check our own processes and procedures and create better content for the future, too, so we can cover those things that weren't covered in the past."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "And how have you been leveraging this across some of your support teams?"
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Matthew Goodfriend",
+      "speech": [
+        "Yes. So we've just started into some testing around doing things not only with like a store operating procedure guide, but Level 0, Level 1 tech issues, customer service issues, things like that. The ability to not only give them an answer but give them a resource too. If there's further questions, here's the documentation or here's the person that you should reach out to has been really, really crucial. And we're projecting about a 70% reduction in calls into Helpdesk customer service desk."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "Yes, because I know for you guys, if the store team wasn't able to answer the question, they would call the distribution or call center teams to help them answer those."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Matthew Goodfriend",
+      "speech": [
+        "And there's a lot of real silly, simple questions..."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "As opposed to the store associate being able to help the customer right in front of them and have them have a better experience. So those are some great insights. Fabrice anything that you want to share about what you think the future of kind of AI is going and where you see retailers leveraging this?"
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Fabrice Haiat",
+      "speech": [
+        "Yes. First, I've been in tech for a few years now. And the first time that I'm seeing the potential of a technology at this scale. That's something that is unseen, I think, in the past years.\r\nMany employees sometimes are worried about the impact of AI. I truly think especially for retailers and frontline employees that this is a huge opportunity. First, to optimize process; second, to boost productivity and also to empower our frontline team, to remove the repetitive admin task that you need to do if you are a store employee, to offer a personalized learning experience for each employee so that they can build their career in the store. And also for facilitating communication between people. So we are, in my opinion, just scratching the surface of the capabilities and the opportunity that are behind AI.\r\nIn the next version, we're going to release additional capabilities. One of them that I'm really excited is what we call NEO insights. So all our clients have reports reporting, BI report, and they need to go to their IT team to get this report. And the report never really answered the question that you want to ask. So here with AI, we're going to just ask a simple question to NEO and NEO is building both the graphics and the answer to your question and doing all the heavy lifting.\r\nThe second thing we are very excited about is bringing additional capability for district and regional manager so that when they're doing the store visit, they know the topic to focus during their store visits. And to make this kind of surfacing the priority for the store visits. That's the second thing.\r\nThe third thing is, yes, we have a lot -- maybe I'm keeping the third thing for next time. But yes, we're very excited about what's happening there. Internally also, we've been using AI for our dev team, 30% of the code that we are producing within the platform is now done by AI, which has enabled us to ship much more feature much faster than never ever before."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "Great. Well, maybe we can conclude on just any advice or best practices you think, for kind of rolling out a project like this and what it takes to kind of get all hands on deck to make it a success."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Matthew Goodfriend",
+      "speech": [
+        "Yes. I think time is key."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "What do you mean by that?"
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Matthew Goodfriend",
+      "speech": [
+        "There's a lot of encouragement to get things done in a very short amount of time and if you have all the right efficiencies in place and you have all the right key people, very easy to do. But as we know that the kind of retail space is volatile, and there's turnover and there's reductions in workforce and things like that. And I think we saw that along the way on our project, too, where I needed that key person that had that information. So I think it's really just about being willing to take the time. I mean we didn't have any delays in our process because whenever something happened, we took a step back and went, okay, who do we need to involve? How do we need to do this? What time do we need to set up to properly execute these things."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "I think the other thing that you guys did that was fairly strong was that you tested in a group of stores or a region before you rolled out, right, before you're ready to launch to get some good feedback from the field and making sure things were smooth and the last kind of touches around it before you launch to the field. So that was a good tip as well.\r\nGood. Well, thanks, everyone. We're excited for what's next. And we have some time so if there's questions from the group, feel free to come up, and we will pass the mic to you somewhere. Yes, right here in the front. Any question?"
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Unknown Attendee",
+      "speech": [
+        "I wanted to go back to Matt around content creation because you said the average user does 1 hour of training per week in learning and development. What's your goal kind of goal ratio content to training? Have you thought about that?"
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Matthew Goodfriend",
+      "speech": [
+        "Yes, usually like the comparison between just like, hey, this is information versus this is actual."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Unknown Attendee",
+      "speech": [
+        "Yes. And like how much time are you spending creating content versus how much of their time they're spending learning?"
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Matthew Goodfriend",
+      "speech": [
+        "Yes, it's probably 20:1 in terms of the time that it historically took us to create the content to what an individual user is actually completing. But I think the thing that you have to factor in there is that, while it might take us, let's say, 20 hours to create something, we have 22,000 people who are going to take an hour to complete it. So it's not just -- it's 20:1, we have 22,000 hours worth of work being done around learning on a weekly basis."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "Other questions? I think there's one back there."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Unknown Attendee",
+      "speech": [
+        "Great presentation. Quick question about the task side of the app. Is there any way within -- when it's sending down tasks and SOPs and such, could it actually optimize with AI? What they should do next and what time of day and kind of those kind of things?"
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Fabrice Haiat",
+      "speech": [
+        "Yes. So that's exactly what we are working on. I think we are using a domain of AI called pattern recognition to correlate the -- so we are bringing into the platform, the core KPI unit per transaction, conversion rate, you name it. And we are correlating that with the actions that are taken at the store level so that we can predict what is the next best action for the store, whether it's a task, but it could also be training, like conversion rate is dropping, maybe your store need a refresher on how to work on conversion rates.",
+        "So by having cash conversion training and communication under the same platform, the AI can decide what is the best object that need to be triggered to get back to profitability or to performance. And that's basically putting the system on autopilot and letting AI giving recommendation. Of course, it's under human supervision, but the power here is infinite."
+      ],
+      "session": "management_discussion"
+    },
+    {
+      "name": "Jenna Goldstein",
+      "speech": [
+        "Anyone else? Okay. Well, thank you, everyone. I appreciate the time. Thanks, Matt."
+      ],
+      "session": "management_discussion"
+    }
+  ],
+  "year": 0
+}
