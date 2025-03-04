@@ -1,43 +1,61 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { EarningsCall } from '../types';
 import CallListItem from './CallListItem';
 
 interface SidebarProps {
   selectedCompany: string;
   calls: EarningsCall[];
+  pastCalls?: EarningsCall[];
   onSelectCompany: (company: string) => void;
 }
 
-type FilterType = 'all' | 'upcoming' | 'live';
+type FilterType = 'all' | 'upcoming' | 'live' | 'past';
 
-const Sidebar: React.FC<SidebarProps> = ({ selectedCompany, calls, onSelectCompany }) => {
+const Sidebar: React.FC<SidebarProps> = ({ selectedCompany, calls, pastCalls = [], onSelectCompany }) => {
   const [filter, setFilter] = useState<FilterType>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const sortedCalls = [...calls].sort((a, b) => {
-    // First sort by date
-    const dateCompare = new Date(a.date).getTime() - new Date(b.date).getTime();
-    if (dateCompare !== 0) return dateCompare;
+  // Memoize the data filtering logic
+  const displayedCalls = useMemo(() => {
+    // Determine which data source to use
+    let dataToFilter: EarningsCall[] = filter === 'past'
+      ? [...pastCalls, ...calls.filter(call => call.status === 'past')]
+      : [...calls];
     
-    // If same date, sort by time
-    return a.time.localeCompare(b.time);
-  });
+    // Sort the calls
+    const sortedData = dataToFilter.sort((a, b) => {
+      const dateCompare = new Date(a.date).getTime() - new Date(b.date).getTime();
+      return dateCompare !== 0 ? dateCompare : a.time.localeCompare(b.time);
+    });
+    
+    // Apply filters
+    return sortedData.filter(call => {
+      // Apply status filter
+      const matchesFilter = 
+        filter === 'all' ? true :
+        filter === 'upcoming' ? call.status === 'upcoming' :
+        filter === 'live' ? call.status === 'ongoing' :
+        filter === 'past' ? call.status === 'past' : false;
+      
+      // Apply search filter
+      const matchesSearch = searchTerm
+        ? call.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          call.symbol.toLowerCase().includes(searchTerm.toLowerCase())
+        : true;
+      
+      return matchesFilter && matchesSearch;
+    });
+  }, [filter, searchTerm, calls, pastCalls]);
 
-  const filteredCalls = sortedCalls.filter(call => {
-    // First apply status filter
-    const matchesFilter = 
-      filter === 'all' ? true :
-      filter === 'upcoming' ? call.status === 'upcoming' :
-      filter === 'live' ? call.status === 'ongoing' : true;
+  // Memoize filter change handler
+  const handleFilterChange = useCallback((newFilter: FilterType) => {
+    setFilter(newFilter);
+  }, []);
 
-    // Then apply search filter if there's a search term
-    const matchesSearch = searchTerm
-      ? call.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        call.symbol.toLowerCase().includes(searchTerm.toLowerCase())
-      : true;
-
-    return matchesFilter && matchesSearch;
-  });
+  // Memoize search change handler
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+  }, []);
 
   return (
     <div className="w-80 border-r border-gray-200 bg-white">
@@ -53,7 +71,7 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedCompany, calls, onSelectCompa
             placeholder="Search company or symbol..."
             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={handleSearchChange}
           />
         </div>
 
@@ -64,7 +82,7 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedCompany, calls, onSelectCompa
                 ? 'bg-blue-100 text-blue-800' 
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
-            onClick={() => setFilter('all')}
+            onClick={() => handleFilterChange('all')}
           >
             All Calls
           </button>
@@ -74,7 +92,7 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedCompany, calls, onSelectCompa
                 ? 'bg-blue-100 text-blue-800' 
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
-            onClick={() => setFilter('upcoming')}
+            onClick={() => handleFilterChange('upcoming')}
           >
             Upcoming
           </button>
@@ -84,18 +102,28 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedCompany, calls, onSelectCompa
                 ? 'bg-blue-100 text-blue-800' 
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
-            onClick={() => setFilter('live')}
+            onClick={() => handleFilterChange('live')}
           >
             Live
+          </button>
+          <button 
+            className={`px-3 py-1 text-xs rounded-full ${
+              filter === 'past' 
+                ? 'bg-blue-100 text-blue-800' 
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+            onClick={() => handleFilterChange('past')}
+          >
+            Past
           </button>
         </div>
       </div>
 
       <div className="overflow-y-auto">
-        {filteredCalls.length > 0 ? (
-          filteredCalls.map(call => (
+        {displayedCalls.length > 0 ? (
+          displayedCalls.map(call => (
             <CallListItem
-              key={call.symbol}
+              key={`${call.symbol}-${call.date}`}
               call={call}
               isSelected={selectedCompany === call.company}
               onSelect={() => onSelectCompany(call.company)}

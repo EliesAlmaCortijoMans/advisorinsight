@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Play, Pause, Calendar, Volume2, VolumeX } from 'lucide-react';
 
 interface AudioFile {
@@ -24,6 +24,16 @@ const AudioHistoryModal: React.FC<AudioHistoryModalProps> = ({ onClose, audioHis
   const [isMuted, setIsMuted] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isSeeking, setIsSeeking] = useState(false);
+  const lastErrorRef = useRef<string | null>(null);
+
+  // Helper function to ensure audio URL is properly formatted
+  const getFullAudioUrl = (url: string) => {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    // Use the backend server URL
+    return `http://localhost:8000${url.startsWith('/') ? url : `/${url}`}`;
+  };
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
@@ -96,91 +106,26 @@ const AudioHistoryModal: React.FC<AudioHistoryModalProps> = ({ onClose, audioHis
     }
   };
 
-  const seekToPosition = async (position: number) => {
+  const handleTimelineChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (!audioRef.current) return;
-
-    try {
-      // Pause the audio first
-      audioRef.current.pause();
-      
-      // Wait for a small buffer
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Set the new position
-      audioRef.current.currentTime = position;
-      setCurrentTime(position);
-
-      // Wait for another small buffer
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Resume playback if it was playing
-      if (isPlaying) {
-        await audioRef.current.play();
-      }
-    } catch (err) {
-      console.error('Error in seekToPosition:', err);
-      setError('Failed to seek to position');
-    }
-  };
-
-  const handleTimelineChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!audioRef.current) return;
-
-    try {
-      const percent = parseFloat(e.target.value) / 100;
-      const newTime = Math.floor(audioRef.current.duration * percent);
-      
-      console.log('Seeking to position:', {
-        percent,
-        newTime,
-        duration: audioRef.current.duration
-      });
-
-      await seekToPosition(newTime);
-    } catch (err) {
-      console.error('Error in handleTimelineChange:', err);
-      setError('Failed to seek');
-    }
-  };
-
-  const handleTimelineSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!audioRef.current) return;
-    
-    const percent = parseFloat(e.target.value) / 100;
-    const newTime = Math.floor(audioRef.current.duration * percent);
+    const newTime = parseFloat(e.target.value);
     setCurrentTime(newTime);
-  };
+    audioRef.current.currentTime = newTime;
+  }, []);
 
-  const handleLoadedMetadata = () => {
-    if (audioRef.current) {
-      setDuration(audioRef.current.duration);
+  const handleTimelineMouseDown = useCallback(() => {
+    setIsSeeking(true);
+    if (isPlaying && audioRef.current) {
+      audioRef.current.pause();
     }
-  };
+  }, [isPlaying]);
 
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(e.target.value);
-    setVolume(value);
-    if (audioRef.current) {
-      audioRef.current.volume = value;
+  const handleTimelineMouseUp = useCallback(() => {
+    setIsSeeking(false);
+    if (isPlaying && audioRef.current) {
+      audioRef.current.play();
     }
-    if (value === 0) {
-      setIsMuted(true);
-    } else {
-      setIsMuted(false);
-    }
-  };
-
-  const toggleMute = () => {
-    if (audioRef.current) {
-      if (isMuted) {
-        audioRef.current.volume = volume;
-        setIsMuted(false);
-      } else {
-        audioRef.current.volume = 0;
-        setIsMuted(true);
-      }
-    }
-  };
+  }, [isPlaying]);
 
   // Update the useEffect to ensure audio is properly loaded
   useEffect(() => {
@@ -193,8 +138,8 @@ const AudioHistoryModal: React.FC<AudioHistoryModalProps> = ({ onClose, audioHis
             setDuration(0);
             setError(null);
 
-            // Set new source
-            audioRef.current.src = selectedAudio.audioUrl;
+            // Set new source with properly formatted URL
+            audioRef.current.src = getFullAudioUrl(selectedAudio.audioUrl);
             audioRef.current.load();
             audioRef.current.volume = volume;
 
@@ -205,10 +150,6 @@ const AudioHistoryModal: React.FC<AudioHistoryModalProps> = ({ onClose, audioHis
 
             // Set initial duration
             setDuration(audioRef.current.duration);
-            console.log('Audio loaded successfully:', {
-              duration: audioRef.current.duration,
-              readyState: audioRef.current.readyState
-            });
 
             // Start playing if needed
             if (isPlaying) {
@@ -241,25 +182,18 @@ const AudioHistoryModal: React.FC<AudioHistoryModalProps> = ({ onClose, audioHis
                     ? 'bg-indigo-50 text-indigo-700'
                     : 'hover:bg-gray-100'
                 }`}
+                disabled={!audio.audioAvailable}
               >
-                <div className="flex items-center justify-between">
-                  <div className="font-medium">{audio.title}</div>
-                  <div className="text-indigo-600">
-                    {selectedAudio?.id === audio.id ? (
-                      isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />
-                    ) : (
-                      audio.audioAvailable ? (
-                        <Play className="w-4 h-4 opacity-50" />
-                      ) : (
-                        <span className="text-sm text-gray-500">Not available</span>
-                      )
-                    )}
-                  </div>
-                </div>
+                <div className="font-medium">{audio.title || 'Earnings Call'}</div>
                 {audio.time && (
                   <div className="text-sm text-gray-500 flex items-center mt-1">
                     <Calendar className="w-4 h-4 mr-1" />
                     {formatDate(audio.time)}
+                  </div>
+                )}
+                {!audio.audioAvailable && (
+                  <div className="text-xs text-red-500 mt-1">
+                    Audio not available
                   </div>
                 )}
               </button>
@@ -282,102 +216,149 @@ const AudioHistoryModal: React.FC<AudioHistoryModalProps> = ({ onClose, audioHis
           </div>
 
           <div className="flex-1 flex">
-            {/* Audio visualization area */}
-            <div className="flex-1 p-6 flex items-center justify-center">
+            {/* Audio player area */}
+            <div className="flex-1 p-6 flex flex-col">
               {selectedAudio ? (
-                <div className="text-center w-full">
-                  <div className="bg-gray-100 rounded-lg p-8 mb-4">
-                    {/* Audio visualization placeholder */}
-                    <div className="h-32 bg-indigo-100 rounded-lg flex items-center justify-center">
-                      <span className="text-indigo-600">Audio Waveform</span>
+                <>
+                  <div className="flex-1 flex items-center justify-center">
+                    <div className="text-center w-full">
+                      <div className="bg-gray-100 rounded-lg p-8 mb-4">
+                        <div className="h-32 bg-indigo-100 rounded-lg flex items-center justify-center">
+                          <span className="text-indigo-600">
+                            {isPlaying ? 'Now Playing' : 'Ready to Play'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
+                  
+                  {/* Audio controls */}
+                  <div className="border-t border-gray-200 pt-4">
+                    {/* Timeline */}
+                    <div className="mb-4">
+                      <div className="flex justify-between text-sm text-gray-500 mb-1">
+                        <span>{formatTime(currentTime)}</span>
+                        <span>{formatTime(duration)}</span>
+                      </div>
+                      <div className="relative h-2">
+                        <input
+                          type="range"
+                          min="0"
+                          max={duration || 100}
+                          step="1"
+                          value={currentTime}
+                          onChange={handleTimelineChange}
+                          onMouseDown={handleTimelineMouseDown}
+                          onMouseUp={handleTimelineMouseUp}
+                          onTouchStart={handleTimelineMouseDown}
+                          onTouchEnd={handleTimelineMouseUp}
+                          className="absolute w-full h-full opacity-0 cursor-pointer z-10"
+                        />
+                        <div className="absolute w-full h-full bg-gray-200 rounded-full">
+                          <div 
+                            className="h-full bg-indigo-600 rounded-full"
+                            style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Playback controls */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <button
+                          onClick={handlePlayPauseButton}
+                          className="p-2 rounded-full hover:bg-gray-100"
+                        >
+                          {isPlaying ? (
+                            <Pause className="w-6 h-6 text-gray-700" />
+                          ) : (
+                            <Play className="w-6 h-6 text-gray-700" />
+                          )}
+                        </button>
+                      </div>
+                      
+                      {/* Volume control */}
+                      <div className="flex items-center space-x-2" style={{ width: '120px' }}>
+                        <button
+                          onClick={() => {
+                            setIsMuted(!isMuted);
+                            if (audioRef.current) {
+                              audioRef.current.volume = isMuted ? volume : 0;
+                            }
+                          }}
+                          className="p-1 hover:bg-gray-100 rounded"
+                        >
+                          {isMuted ? (
+                            <VolumeX className="w-4 h-4 text-gray-500" />
+                          ) : (
+                            <Volume2 className="w-4 h-4 text-gray-500" />
+                          )}
+                        </button>
+                        <div className="relative flex-1 h-1">
+                          <input
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.1"
+                            value={isMuted ? 0 : volume}
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value);
+                              setVolume(value);
+                              setIsMuted(value === 0);
+                              if (audioRef.current) {
+                                audioRef.current.volume = value;
+                              }
+                            }}
+                            className="absolute w-full h-full opacity-0 cursor-pointer z-10"
+                          />
+                          <div className="absolute w-full h-full bg-gray-200 rounded-full">
+                            <div 
+                              className="h-full bg-indigo-600 rounded-full"
+                              style={{ width: `${(isMuted ? 0 : volume) * 100}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
               ) : (
-                <div className="text-gray-500">
+                <div className="flex-1 flex items-center justify-center text-gray-500">
                   Select an earnings call recording from the sidebar to listen
                 </div>
               )}
             </div>
-
-            {/* Audio controls */}
-            {selectedAudio && (
-              <div className="w-64 border-l border-gray-200 p-4 flex flex-col">
-                <div className="mb-8">
-                  <div className="flex justify-between text-sm text-gray-600 mb-2">
-                    <span>{formatTime(currentTime)}</span>
-                    <span>{formatTime(duration)}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={(currentTime / (duration || 1)) * 100}
-                    step="1"
-                    onChange={handleTimelineSeek}
-                    onMouseUp={handleTimelineChange}
-                    onTouchEnd={handleTimelineChange}
-                    className="w-full accent-indigo-600 cursor-pointer"
-                  />
-                </div>
-
-                <div className="mb-4">
-                  <div className="flex items-center mb-2">
-                    <button onClick={toggleMute} className="text-gray-600 hover:text-gray-800">
-                      {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-                    </button>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.01"
-                      value={isMuted ? 0 : volume}
-                      onChange={handleVolumeChange}
-                      className="w-full ml-2"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  onClick={handlePlayPauseButton}
-                  className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center justify-center"
-                >
-                  {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
-                </button>
-              </div>
-            )}
           </div>
         </div>
       </div>
-      
-      {/* Hidden audio element for playing the audio */}
+
+      {/* Hidden audio element */}
       <audio
         ref={audioRef}
         onTimeUpdate={() => {
           if (audioRef.current && !isSeeking) {
-            const time = Math.floor(audioRef.current.currentTime);
-            if (!isNaN(time)) {
-              setCurrentTime(time);
-            }
+            setCurrentTime(audioRef.current.currentTime);
           }
         }}
         onLoadedMetadata={() => {
           if (audioRef.current) {
-            const duration = Math.floor(audioRef.current.duration);
-            if (!isNaN(duration)) {
-              setDuration(duration);
-            }
+            setDuration(audioRef.current.duration);
           }
         }}
         onError={(e) => {
           const error = audioRef.current?.error;
-          console.error('Audio error:', {
-            error,
-            code: error?.code,
-            message: error?.message,
-            src: audioRef.current?.src
-          });
-          setError('Error loading audio file');
+          const errorMessage = error?.message || 'Unknown error';
+          
+          if (lastErrorRef.current !== errorMessage) {
+            lastErrorRef.current = errorMessage;
+            console.error('Audio error:', {
+              code: error?.code,
+              message: errorMessage,
+              src: audioRef.current?.src
+            });
+            setError(`Error loading audio file: ${errorMessage}`);
+          }
         }}
         preload="metadata"
       />

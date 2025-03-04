@@ -4,7 +4,7 @@ import CompanyHeader from './components/header/CompanyHeader';
 import AnalysisTabs from './components/analysis/AnalysisTabs';
 import AudioHistoryModal from './components/modals/AudioHistoryModal';
 import { AnalysisTab } from './types';
-import { mockCalls, audioHistory, transcriptContent, summaryContent } from './data/mockData';
+import { audioHistory, transcriptContent, summaryContent } from './data/mockData';
 import SentimentAnalysis from './components/analysis/SentimentAnalysis';
 import FinancialMetrics from './components/analysis/FinancialMetrics';
 import InvestorReactions from './components/analysis/InvestorReactions';
@@ -15,6 +15,7 @@ import SummaryModal from './components/modals/SummaryModal';
 import { StockWebSocket } from './services/stockWebSocket';
 import { fetchCompanyTranscripts } from './services/transcriptService';
 import { fetchAudioHistory } from './services/audioService';
+import { fetchEarningsSchedule } from './services/earningsService';
 
 function App() {
   const [selectedCompany, setSelectedCompany] = useState('');
@@ -32,6 +33,7 @@ function App() {
   const [transcripts, setTranscripts] = useState<any[]>([]);
   const [selectedTranscript, setSelectedTranscript] = useState<any>(null);
   const [audioHistory, setAudioHistory] = useState<any[]>([]);
+  const [earningsData, setEarningsData] = useState<any[]>([]);
 
   // Callback for handling price updates
   const handlePriceUpdate = useCallback((data: any) => {
@@ -56,17 +58,17 @@ function App() {
 
   // Subscribe to symbol when company changes
   useEffect(() => {
-    const selectedCall = mockCalls.find(call => call.company === selectedCompany);
+    const selectedCall = earningsData.find(call => call.company === selectedCompany);
     if (selectedCall && stockWebSocket) {
       stockWebSocket.subscribeToSymbol(selectedCall.symbol);
     }
-  }, [selectedCompany, stockWebSocket]);
+  }, [selectedCompany, stockWebSocket, earningsData]);
 
   // Fetch transcripts when company changes
   useEffect(() => {
     const fetchTranscripts = async () => {
       if (selectedCompany) {
-        const selectedCall = mockCalls.find(call => call.company === selectedCompany);
+        const selectedCall = earningsData.find(call => call.company === selectedCompany);
         if (selectedCall?.symbol) {
           try {
             console.log('Fetching transcripts for:', selectedCall.symbol); // Debug log
@@ -83,13 +85,13 @@ function App() {
     };
 
     fetchTranscripts();
-  }, [selectedCompany]);
+  }, [selectedCompany, earningsData]);
 
   // Add effect to fetch audio history when company changes
   useEffect(() => {
     const fetchAudio = async () => {
       if (selectedCompany) {
-        const selectedCall = mockCalls.find(call => call.company === selectedCompany);
+        const selectedCall = earningsData.find(call => call.company === selectedCompany);
         if (selectedCall?.symbol) {
           try {
             const audioData = await fetchAudioHistory(selectedCall.symbol);
@@ -102,7 +104,21 @@ function App() {
     };
 
     fetchAudio();
-  }, [selectedCompany]);
+  }, [selectedCompany, earningsData]);
+
+  // Add useEffect to fetch earnings data
+  useEffect(() => {
+    const fetchEarnings = async () => {
+      try {
+        const data = await fetchEarningsSchedule();
+        setEarningsData(data);
+      } catch (error) {
+        console.error('Error fetching earnings:', error);
+      }
+    };
+
+    fetchEarnings();
+  }, []);
 
   const renderAnalysisContent = () => {
     switch (activeTab) {
@@ -123,7 +139,7 @@ function App() {
     <div className="flex min-h-screen bg-white">
       <Sidebar 
         selectedCompany={selectedCompany}
-        calls={mockCalls}
+        calls={earningsData}
         onSelectCompany={setSelectedCompany}
       />
 

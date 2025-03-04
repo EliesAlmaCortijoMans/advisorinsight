@@ -27,8 +27,6 @@ const CompanyHeader: React.FC<CompanyHeaderProps> = ({
     }
   }, [currentPrice]);  // React to price changes
 
-  console.log('Rendering with price:', currentPrice);  // Debug log
-
   return (
     <div>
       <h2 className="text-2xl font-semibold text-gray-900">{company}</h2>
