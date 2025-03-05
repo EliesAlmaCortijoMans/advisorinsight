@@ -107,7 +107,7 @@ Subscribe to a symbol:
 
    ```json
    {
-   "symbol": "AAPL"
+      "symbol": "AAPL"
    }
    ```
 
@@ -115,10 +115,10 @@ Receive updates:
 
    ```json
    {
-   "symbol": "AAPL",
-   "price": 150.25,
-   "change": 2.5,
-   "percentChange": 1.67
+      "symbol": "AAPL",
+      "price": 150.25,
+      "change": 2.5,
+      "percentChange": 1.67
    }
    ```
 
