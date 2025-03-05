@@ -15,7 +15,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from stock import views
@@ -25,4 +25,5 @@ urlpatterns = [
     path('api/transcripts/<str:symbol>/', views.get_company_transcripts, name='company_transcripts'),
     path('api/audio-history/<str:symbol>/', views.get_audio_history, name='audio_history'),
     path('api/earnings-schedule/', views.get_earnings_schedule_view, name='earnings_schedule'),
+    path('api/', include('stock.urls')),  # Include stock app URLs
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

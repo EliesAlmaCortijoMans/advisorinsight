@@ -5,7 +5,7 @@ from pathlib import Path
 from django.conf import settings
 import requests
 from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
+from urllib3.util import Retry
 import datetime
 from dotenv import load_dotenv
 import logging
@@ -15,6 +15,9 @@ import time
 from django.core.cache import cache
 from math import isnan
 import redis
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from openai import OpenAI
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -418,4 +421,39 @@ def get_earnings_schedule_view(request):
             'success': False,
             'error': str(e),
             'timestamp': datetime.datetime.now().isoformat()
+        }, status=500)
+
+@api_view(['POST'])
+def transcribe_audio(request):
+    try:
+        audio_url = request.data.get('audio_url')
+        if not audio_url:
+            return Response({'success': False, 'error': 'No audio URL provided'}, status=400)
+
+        # Get the actual file path from the URL
+        relative_path = audio_url.replace('http://localhost:8000', '')
+        file_path = os.path.join(settings.MEDIA_ROOT, *relative_path.split('/')[2:])
+
+        if not os.path.exists(file_path):
+            return Response({'success': False, 'error': 'Audio file not found'}, status=404)
+
+        client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        
+        # Create transcription using OpenAI's Whisper model
+        with open(file_path, "rb") as audio_file:
+            response = client.audio.transcriptions.create(
+                file=audio_file,
+                model="whisper-1",
+                response_format="json",
+                language="en"
+            )
+
+        return Response({
+            'success': True,
+            'transcription': response.text
+        })
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
         }, status=500)

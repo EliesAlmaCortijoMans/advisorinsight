@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { X, Play, Pause, Calendar, Volume2, VolumeX } from 'lucide-react';
+import { X, Play, Pause, Calendar, Volume2, VolumeX, Subtitles } from 'lucide-react';
 
 interface AudioFile {
   id: string;
@@ -14,6 +14,13 @@ interface AudioHistoryModalProps {
   audioHistory: AudioFile[];
 }
 
+// Add type declaration for captureStream
+declare global {
+  interface HTMLAudioElement {
+    captureStream(): MediaStream;
+  }
+}
+
 const AudioHistoryModal: React.FC<AudioHistoryModalProps> = ({ onClose, audioHistory }) => {
   const [selectedAudio, setSelectedAudio] = useState<AudioFile | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -25,6 +32,14 @@ const AudioHistoryModal: React.FC<AudioHistoryModalProps> = ({ onClose, audioHis
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isSeeking, setIsSeeking] = useState(false);
   const lastErrorRef = useRef<string | null>(null);
+  const [showCaptions, setShowCaptions] = useState(false);
+  const [captions, setCaptions] = useState<string>('');
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const destinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
 
   // Helper function to ensure audio URL is properly formatted
   const getFullAudioUrl = (url: string) => {
@@ -127,6 +142,168 @@ const AudioHistoryModal: React.FC<AudioHistoryModalProps> = ({ onClose, audioHis
     }
   }, [isPlaying]);
 
+  const cleanupAudioProcessing = useCallback(() => {
+    try {
+      if (mediaRecorderRef.current?.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
+      if (audioContextRef.current?.state !== 'closed') {
+        audioContextRef.current?.close();
+      }
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.close();
+      }
+      mediaRecorderRef.current = null;
+      audioContextRef.current = null;
+      wsRef.current = null;
+    } catch (err) {
+      console.error('Error during cleanup:', err);
+    }
+  }, []);
+
+  const setupAudioProcessing = useCallback(async () => {
+    if (!audioRef.current) return;
+
+    try {
+      // Create audio context
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      // Get the audio stream directly from the audio element
+      const stream = audioRef.current.captureStream();
+      
+      // Check supported MIME types
+      const mimeType = 'audio/webm;codecs=opus';  // Stick with WebM as it's most reliable
+      console.log('Using MIME type:', mimeType);
+      
+      // Create MediaRecorder
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: mimeType,
+        bitsPerSecond: 128000
+      });
+
+      // Set up WebSocket connection
+      wsRef.current = new WebSocket('ws://localhost:8000/ws/transcribe/');
+      
+      wsRef.current.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === 'transcription') {
+          // Only add new text if it's not already in the captions
+          setCaptions(prev => {
+            const newText = data.text.trim();
+            // If the previous text ends with the new text, don't add it
+            if (prev.endsWith(newText)) {
+              return prev;
+            }
+            // If the new text contains part of the previous text, remove the overlap
+            const overlap = findOverlap(prev, newText);
+            if (overlap) {
+              return prev + newText.slice(overlap.length);
+            }
+            // Otherwise, add with a space
+            return prev + (prev ? ' ' : '') + newText;
+          });
+        } else if (data.type === 'error') {
+          console.error('Transcription error:', data.message);
+          if (data.message.includes('Invalid file format')) {
+            cleanupAudioProcessing();
+            setError('Transcription format error - restarting captions...');
+            // Restart the audio processing after a short delay
+            setTimeout(() => {
+              setupAudioProcessing();
+            }, 1000);
+          } else {
+            setError('Error processing audio. Trying to continue...');
+          }
+        }
+      };
+
+      // Add helper function to find text overlap
+      const findOverlap = (str1: string, str2: string): string => {
+        if (!str1 || !str2) return '';
+        let overlap = '';
+        const minLength = Math.min(str1.length, str2.length);
+        for (let i = 1; i <= minLength; i++) {
+          const end = str1.slice(-i);
+          const start = str2.slice(0, i);
+          if (end === start) {
+            overlap = end;
+          }
+        }
+        return overlap;
+      };
+
+      // Handle audio chunks
+      let chunks: Blob[] = [];
+      mediaRecorder.ondataavailable = async (event) => {
+        if (event.data.size > 0 && wsRef.current?.readyState === WebSocket.OPEN) {
+          try {
+            // Create a new blob with explicit WebM type
+            const audioBlob = new Blob([event.data], { type: 'audio/webm' });
+            
+            // Convert to base64
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const base64data = (reader.result as string)?.split(',')[1];
+              if (base64data && wsRef.current?.readyState === WebSocket.OPEN) {
+                wsRef.current.send(JSON.stringify({
+                  type: 'audio_chunk',
+                  chunk: base64data
+                }));
+              }
+            };
+            reader.readAsDataURL(audioBlob);
+          } catch (err) {
+            console.error('Error processing audio chunk:', err);
+          }
+        }
+      };
+
+      // Start recording in 3-second chunks
+      mediaRecorder.start(3000);
+      mediaRecorderRef.current = mediaRecorder;
+
+    } catch (err) {
+      console.error('Error setting up audio processing:', err);
+      setError('Failed to set up live captions');
+      setShowCaptions(false);
+    }
+  }, [cleanupAudioProcessing]);
+
+  const toggleCaptions = async () => {
+    try {
+      if (showCaptions) {
+        // If turning off captions
+        cleanupAudioProcessing();
+        setCaptions('');
+        setShowCaptions(false);
+      } else {
+        // If turning on captions
+        setShowCaptions(true);
+        setIsTranscribing(true);
+        setError(null);  // Clear any previous errors
+        await setupAudioProcessing();
+        setIsTranscribing(false);
+      }
+    } catch (err) {
+      console.error('Error toggling captions:', err);
+      setError('Failed to toggle captions');
+      setShowCaptions(false);
+    }
+  };
+
+  // Add effect to handle audio context setup when playing changes
+  useEffect(() => {
+    if (isPlaying && showCaptions && !audioContextRef.current) {
+      setupAudioProcessing();
+    }
+  }, [isPlaying, showCaptions, setupAudioProcessing]);
+
+  useEffect(() => {
+    return () => {
+      cleanupAudioProcessing();
+    };
+  }, [cleanupAudioProcessing]);
+
   // Update the useEffect to ensure audio is properly loaded
   useEffect(() => {
     if (selectedAudio) {
@@ -215,14 +392,14 @@ const AudioHistoryModal: React.FC<AudioHistoryModalProps> = ({ onClose, audioHis
             </button>
           </div>
 
-          <div className="flex-1 flex">
+          <div className="flex-1 flex flex-col">
             {/* Audio player area */}
             <div className="flex-1 p-6 flex flex-col">
               {selectedAudio ? (
                 <>
-                  <div className="flex-1 flex items-center justify-center">
-                    <div className="text-center w-full">
-                      <div className="bg-gray-100 rounded-lg p-8 mb-4">
+                  <div className="flex-1 flex flex-col">
+                    <div className="text-center w-full mb-4">
+                      <div className="bg-gray-100 rounded-lg p-8">
                         <div className="h-32 bg-indigo-100 rounded-lg flex items-center justify-center">
                           <span className="text-indigo-600">
                             {isPlaying ? 'Now Playing' : 'Ready to Play'}
@@ -230,10 +407,25 @@ const AudioHistoryModal: React.FC<AudioHistoryModalProps> = ({ onClose, audioHis
                         </div>
                       </div>
                     </div>
+
+                    {/* Captions area */}
+                    {showCaptions && (
+                      <div className="mb-4 p-4 bg-gray-50 rounded-lg max-h-48 overflow-y-auto">
+                        {isTranscribing ? (
+                          <div className="text-center text-gray-500">
+                            Generating captions...
+                          </div>
+                        ) : (
+                          <p className="text-gray-700 whitespace-pre-wrap">
+                            {captions || 'No captions available'}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                   
                   {/* Audio controls */}
-                  <div className="border-t border-gray-200 pt-4">
+                  <div className="mt-auto">
                     {/* Timeline */}
                     <div className="mb-4">
                       <div className="flex justify-between text-sm text-gray-500 mb-1">
@@ -275,6 +467,16 @@ const AudioHistoryModal: React.FC<AudioHistoryModalProps> = ({ onClose, audioHis
                           ) : (
                             <Play className="w-6 h-6 text-gray-700" />
                           )}
+                        </button>
+
+                        {/* Caption toggle button */}
+                        <button
+                          onClick={toggleCaptions}
+                          className={`p-2 rounded-full hover:bg-gray-100 ${
+                            showCaptions ? 'bg-indigo-100 text-indigo-600' : 'text-gray-700'
+                          }`}
+                        >
+                          <Subtitles className="w-6 h-6" />
                         </button>
                       </div>
                       
@@ -360,6 +562,7 @@ const AudioHistoryModal: React.FC<AudioHistoryModalProps> = ({ onClose, audioHis
             setError(`Error loading audio file: ${errorMessage}`);
           }
         }}
+        crossOrigin="anonymous"
         preload="metadata"
       />
     </div>

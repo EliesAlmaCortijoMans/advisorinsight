@@ -9,6 +9,10 @@ import redis
 from datetime import datetime, timedelta
 import pytz
 import logging
+from openai import OpenAI
+import base64
+import tempfile
+from django.conf import settings
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -389,4 +393,153 @@ class StockConsumer(AsyncWebsocketConsumer):
                 except Exception as e:
                     logger.error(f"Error getting price for {symbol}: {e}")
         except Exception as e:
-            logger.error(f"Error in fetch_and_cache_prices: {e}") 
+            logger.error(f"Error in fetch_and_cache_prices: {e}")
+
+class TranscriptionConsumer(AsyncWebsocketConsumer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        self.temp_file = None
+        self.is_processing = False
+        self.file_counter = 0
+        self.accumulated_size = 0
+        self.max_file_size = 25 * 1024 * 1024  # 25MB max file size
+        self.last_transcription = None
+
+    async def connect(self):
+        await self.accept()
+        logger.info("Transcription client connected")
+        self.create_temp_file()
+
+    def create_temp_file(self):
+        """Create a new temporary file with a unique name"""
+        self.file_counter += 1
+        self.temp_file = tempfile.NamedTemporaryFile(
+            suffix=f'_{self.file_counter}.webm',
+            delete=False,
+            mode='wb'
+        )
+        self.accumulated_size = 0
+        logger.info(f"Created new temp file: {self.temp_file.name}")
+
+    async def disconnect(self, close_code):
+        logger.info(f"Transcription client disconnected with code: {close_code}")
+        if self.temp_file:
+            try:
+                name = self.temp_file.name
+                self.temp_file.close()
+                os.unlink(name)
+                logger.info(f"Cleaned up temp file: {name}")
+            except Exception as e:
+                logger.error(f"Error cleaning up temp file: {e}")
+
+    async def receive(self, text_data):
+        try:
+            data = json.loads(text_data)
+            if data['type'] == 'audio_chunk':
+                # Decode base64 audio chunk
+                audio_chunk = base64.b64decode(data['chunk'])
+                chunk_size = len(audio_chunk)
+
+                # Check if adding this chunk would exceed max file size
+                if self.accumulated_size + chunk_size > self.max_file_size:
+                    logger.info("File size limit reached, processing current file")
+                    await self.process_audio()
+                    self.create_temp_file()
+
+                # Write chunk to file
+                self.temp_file.write(audio_chunk)
+                self.temp_file.flush()
+                os.fsync(self.temp_file.fileno())
+                self.accumulated_size += chunk_size
+
+                # Process the audio if we have enough data and not already processing
+                if self.accumulated_size >= 32768 and not self.is_processing:  # 32KB minimum
+                    self.is_processing = True
+                    await self.process_audio()
+                    self.is_processing = False
+
+        except Exception as e:
+            logger.error(f"Error processing audio chunk: {str(e)}")
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': str(e)
+            }))
+
+    async def process_audio(self):
+        current_file = self.temp_file
+        try:
+            # Create a new temp file for the next chunk
+            current_file_name = current_file.name
+            self.create_temp_file()
+
+            # Ensure current file is properly written and closed
+            current_file.flush()
+            os.fsync(current_file.fileno())
+            current_file.close()
+
+            # Check if file has content
+            if os.path.getsize(current_file_name) == 0:
+                logger.warning("Empty audio file, skipping transcription")
+                os.unlink(current_file_name)
+                return
+
+            # Verify file format
+            try:
+                with open(current_file_name, 'rb') as f:
+                    # Check WebM header magic number
+                    header = f.read(4)
+                    if header != b'\x1a\x45\xdf\xa3':
+                        logger.error("Invalid WebM file format")
+                        raise ValueError("Invalid WebM file format")
+            except Exception as e:
+                logger.error(f"File format verification failed: {e}")
+                os.unlink(current_file_name)
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'message': f"Invalid file format: {str(e)}"
+                }))
+                return
+
+            # Transcribe the audio
+            with open(current_file_name, 'rb') as audio_file:
+                try:
+                    response = self.client.audio.transcriptions.create(
+                        file=audio_file,
+                        model="whisper-1",
+                        response_format="json",
+                        language="en"
+                    )
+
+                    if response.text.strip():
+                        transcribed_text = response.text.strip()
+                        
+                        # Only send if text is different from last transcription
+                        if transcribed_text != self.last_transcription:
+                            self.last_transcription = transcribed_text
+                            await self.send(text_data=json.dumps({
+                                'type': 'transcription',
+                                'text': transcribed_text
+                            }))
+                            logger.info(f"Successfully transcribed audio: {transcribed_text}")
+
+                except Exception as e:
+                    logger.error(f"Transcription error: {str(e)}")
+                    await self.send(text_data=json.dumps({
+                        'type': 'error',
+                        'message': f"Error code: {getattr(e, 'status', 400)} - {str(e)}"
+                    }))
+
+            # Clean up the processed file
+            try:
+                os.unlink(current_file_name)
+                logger.info(f"Deleted processed file: {current_file_name}")
+            except Exception as e:
+                logger.error(f"Error deleting processed file: {e}")
+
+        except Exception as e:
+            logger.error(f"Error transcribing audio: {str(e)}")
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': str(e)
+            })) 

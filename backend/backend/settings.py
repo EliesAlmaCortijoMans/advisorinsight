@@ -38,9 +38,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'channels',
-    'stock',
     'corsheaders',
+    'rest_framework',
+    'stock',
+    'channels',
 ]
 
 MIDDLEWARE = [
@@ -128,7 +129,7 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Add ASGI application
-ASGI_APPLICATION = 'backend.asgi.application'
+ASGI_APPLICATION = 'backend.routing.application'
 
 # Add these settings
 CORS_ALLOW_ALL_ORIGINS = True  # For development only
@@ -137,12 +138,9 @@ CORS_ORIGIN_ALLOW_ALL = True  # For development only
 
 # Channel layer configuration
 CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer",
-        "CONFIG": {
-            "capacity": 1500,  # Maximum number of messages that can be stored
-        },
-    },
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer'
+    }
 }
 
 # Media files configuration
@@ -154,3 +152,9 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
 ]
 CORS_ALLOW_CREDENTIALS = True
+
+# Add CORS headers for media files
+CORS_URLS_REGEX = r'^/(?:api|media)/.*$'
+
+# OpenAI API Key
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
