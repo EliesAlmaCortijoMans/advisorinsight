@@ -28,27 +28,27 @@ Real-time earnings call analysis platform with live stock data integration.
 1. Create and activate virtual environment:
 
    ``` bash
-      python -m venv venv
-      source venv/bin/activate # On Windows: venv\Scripts\activate
+   python -m venv venv
+   source venv/bin/activate # On Windows: venv\Scripts\activate
    ```
 
 2. Install dependencies:
 
    ```bash
-      pip install -r requirements.txt
+   pip install -r requirements.txt
    ```
 
 3. Environment Setup:
 Create `.env` in backend directory:
 
    ``` bash
-      FINNHUB_API_KEY=your_api_key_here
+   FINNHUB_API_KEY=your_api_key_here
    ```
 
 4. Database Setup:
 
    ```bash
-      python manage.py migrate
+   python manage.py migrate
    ```
 
 ### Running the Backend
@@ -56,13 +56,13 @@ Create `.env` in backend directory:
 Development:
 
    ``` bash
-      daphne -b 0.0.0.0 -p 8000 backend.asgi:application
+   daphne -b 0.0.0.0 -p 8000 backend.asgi:application
    ```
 
 Production:
 
    ``` bash
-      daphne -b 0.0.0.0 -p 8000 --access-log - --proxy-headers backend.asgi:application
+   daphne -b 0.0.0.0 -p 8000 --access-log - --proxy-headers backend.asgi:application
    ```
 
 ## Frontend Setup
@@ -77,8 +77,8 @@ Production:
 1. Install dependencies:
 
    ```bash
-      cd frontend
-      npm install
+   cd frontend
+   npm install
    ```
 
 ### Running the Frontend
@@ -86,13 +86,13 @@ Production:
 Development:
 
    ```bash
-      npm run dev
+   npm run dev
    ```
 
 Build for production:
 
    ```bash
-      npm run build
+   npm run build
    ```
 
 ## WebSocket API
@@ -100,26 +100,26 @@ Build for production:
 ### Stock Price Updates
 
    ```bash
-      Connect to: `ws://localhost:8000/ws/stock/`
+   Connect to: `ws://localhost:8000/ws/stock/`
    ```
 
 Subscribe to a symbol:
 
    ```json
-      {
-      "symbol": "AAPL"
-      }
+   {
+   "symbol": "AAPL"
+   }
    ```
 
 Receive updates:
 
    ```json
-      {
-      "symbol": "AAPL",
-      "price": 150.25,
-      "change": 2.5,
-      "percentChange": 1.67
-      }
+   {
+   "symbol": "AAPL",
+   "price": 150.25,
+   "change": 2.5,
+   "percentChange": 1.67
+   }
    ```
 
 ## Features
