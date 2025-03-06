@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import CompanyHeader from './components/header/CompanyHeader';
 import AnalysisTabs from './components/analysis/AnalysisTabs';
@@ -8,6 +8,7 @@ import SentimentAnalysis from './components/analysis/SentimentAnalysis';
 import FinancialMetrics from './components/analysis/FinancialMetrics';
 import InvestorReactions from './components/analysis/InvestorReactions';
 import MarketImpact from './components/analysis/MarketImpact';
+import News from './components/analysis/News';
 import { Headphones } from 'lucide-react';
 import TranscriptModal from './components/modals/TranscriptModal';
 import SummaryModal from './components/modals/SummaryModal';
@@ -212,6 +213,8 @@ function App() {
         return <InvestorReactions />;
       case 'market-impact':
         return <MarketImpact />;
+      case 'news':
+        return <News symbol={selectedCompany?.symbol} />;
       default:
         return null;
     }

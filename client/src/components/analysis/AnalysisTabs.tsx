@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, DollarSign, MessageSquare, TrendingUp } from 'lucide-react';
+import { Activity, DollarSign, MessageSquare, TrendingUp, Newspaper } from 'lucide-react';
 import { AnalysisTab } from '../../types';
 
 interface AnalysisTabsProps {
@@ -53,6 +53,17 @@ const AnalysisTabs: React.FC<AnalysisTabsProps> = ({ activeTab, onTabChange }) =
       >
         <TrendingUp className="w-5 h-5 mr-2" />
         Market Impact
+      </button>
+      <button
+        onClick={() => onTabChange('news')}
+        className={`flex items-center pb-4 ${
+          activeTab === 'news'
+            ? 'text-indigo-600 border-b-2 border-indigo-600'
+            : 'text-gray-500 hover:text-gray-700'
+        }`}
+      >
+        <Newspaper className="w-5 h-5 mr-2" />
+        News
       </button>
     </div>
   );

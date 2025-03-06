@@ -6,8 +6,7 @@ from django.conf import settings
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
-import datetime
-from dotenv import load_dotenv
+from datetime import datetime, timedelta, date
 import logging
 import socket
 from urllib3.exceptions import NameResolutionError
@@ -18,17 +17,17 @@ import redis
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from openai import OpenAI
+import finnhub
+from dotenv import load_dotenv
 
 # Set up logging
 logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
-FINNHUB_API_KEY = os.environ.get("FINNHUB_API_KEY", "")
 
-# Check if API key is available
-if not FINNHUB_API_KEY:
-    raise ValueError("FINNHUB_API_KEY environment variable is not set. Please add it to your .env file.")
+# Use settings.FINNHUB_API_KEY instead of loading directly from environment
+finnhub_client = finnhub.Client(api_key=settings.FINNHUB_API_KEY)
 
 # Create a session with enhanced retry logic
 session = requests.Session()
@@ -36,9 +35,8 @@ retries = Retry(
     total=5,
     backoff_factor=1,
     status_forcelist=[502, 503, 504],
-    allowed_methods=frozenset(['GET', 'POST']),  # Allow retries for GET and POST
-    raise_on_status=False,  # Don't raise on status
-    raise_on_redirect=False,
+    allowed_methods=frozenset(['GET', 'POST']),
+    raise_on_status=False,
     respect_retry_after_header=True
 )
 session.mount('https://', HTTPAdapter(max_retries=retries))
@@ -236,7 +234,7 @@ def fetch_earnings(from_date, to_date, symbol):
         "from": from_date,
         "to": to_date,
         "symbol": symbol,
-        "token": FINNHUB_API_KEY
+        "token": settings.FINNHUB_API_KEY
     }
     
     max_retries = 3
@@ -311,10 +309,10 @@ def format_eps(value):
 
 def get_earnings_schedule():
     """Function to fetch past, current, and upcoming earnings with time shifting."""
-    today = datetime.date.today()
+    today = date.today()
     # Look back/forward 2 years to ensure we find sufficient data
-    past_date = today - datetime.timedelta(days=730)
-    future_date = today + datetime.timedelta(days=730)
+    past_date = today - timedelta(days=730)
+    future_date = today + timedelta(days=730)
     
     all_earnings_data = {}
     failed_tickers = []
@@ -406,21 +404,27 @@ def get_earnings_schedule():
     
     return earnings_data
 
+@api_view(['GET'])
 def get_earnings_schedule_view(request):
     """Django view function to handle earnings schedule requests."""
     try:
+        logger.info("Fetching earnings schedule")
         earnings_data = get_earnings_schedule()
-        return JsonResponse({
+        response = JsonResponse({
             'success': True,
             'earnings': earnings_data,
-            'timestamp': datetime.datetime.now().isoformat()
+            'timestamp': datetime.now().isoformat()
         })
+        response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+        response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
     except Exception as e:
         logger.error(f"Error in earnings schedule view: {e}", exc_info=True)
         return JsonResponse({
             'success': False,
             'error': str(e),
-            'timestamp': datetime.datetime.now().isoformat()
+            'timestamp': datetime.now().isoformat()
         }, status=500)
 
 @api_view(['POST'])
@@ -457,3 +461,38 @@ def transcribe_audio(request):
             'success': False,
             'error': str(e)
         }, status=500)
+
+@api_view(['GET'])
+def company_news(request):
+    symbol = request.GET.get('symbol')
+    if not symbol:
+        return JsonResponse({'error': 'Symbol is required'}, status=400)
+
+    try:
+        logger.info(f"Fetching news for symbol: {symbol}")
+        
+        # Get news from the last 30 days
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=30)
+        
+        logger.info(f"Date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+        
+        if not settings.FINNHUB_API_KEY:
+            logger.error("FINNHUB_API_KEY not found in settings")
+            return JsonResponse({'error': 'Finnhub API key not configured'}, status=500)
+            
+        news = finnhub_client.company_news(
+            symbol,
+            _from=start_date.strftime('%Y-%m-%d'),
+            to=end_date.strftime('%Y-%m-%d')
+        )
+        
+        logger.info(f"Successfully fetched {len(news)} news items")
+        response = JsonResponse(news, safe=False)
+        response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+        response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    except Exception as e:
+        logger.error(f"Error fetching news for {symbol}: {str(e)}", exc_info=True)
+        return JsonResponse({'error': f'Failed to fetch news: {str(e)}'}, status=500)

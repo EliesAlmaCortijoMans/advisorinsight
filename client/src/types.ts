@@ -31,4 +31,4 @@ export interface ThingToListenFor {
   mentioned: boolean;
 }
 
-export type AnalysisTab = 'sentiment' | 'financial' | 'investor' | 'market-impact'; 
+export type AnalysisTab = 'sentiment' | 'financial' | 'investor' | 'market-impact' | 'news'; 

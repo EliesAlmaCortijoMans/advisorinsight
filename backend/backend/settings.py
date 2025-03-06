@@ -158,3 +158,8 @@ CORS_URLS_REGEX = r'^/(?:api|media)/.*$'
 
 # OpenAI API Key
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+
+# API Keys
+FINNHUB_API_KEY = os.getenv('FINNHUB_API_KEY')
+if not FINNHUB_API_KEY:
+    print("Warning: FINNHUB_API_KEY not found in environment variables")
