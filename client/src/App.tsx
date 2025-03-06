@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import CompanyHeader from './components/header/CompanyHeader';
 import AnalysisTabs from './components/analysis/AnalysisTabs';
@@ -9,7 +9,7 @@ import FinancialMetrics from './components/analysis/FinancialMetrics';
 import InvestorReactions from './components/analysis/InvestorReactions';
 import MarketImpact from './components/analysis/MarketImpact';
 import News from './components/analysis/News';
-import { Headphones, FileText, Radio, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Headphones, FileText, Radio, ToggleLeft, ToggleRight, Play, Pause } from 'lucide-react';
 import TranscriptModal from './components/modals/TranscriptModal';
 import SummaryModal from './components/modals/SummaryModal';
 import { StockWebSocket } from './services/stockWebSocket';
@@ -55,6 +55,9 @@ const AppContent: React.FC = () => {
   const { isDarkMode } = useTheme();
   const [isLiveCaptionOn, setIsLiveCaptionOn] = useState(false);
   const [isListeningLive, setIsListeningLive] = useState(false);
+  const [isPlayingLiveAudio, setIsPlayingLiveAudio] = useState(false);
+  const [isConnectingAudio, setIsConnectingAudio] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const stockWebSocket = StockWebSocket.getInstance();
 
@@ -230,6 +233,61 @@ const AppContent: React.FC = () => {
     }
   };
 
+  // Add this function to handle live audio playback
+  const handleLiveAudioPlayback = async () => {
+    if (!audioRef.current || !selectedCompany) return;
+
+    try {
+      if (isPlayingLiveAudio) {
+        audioRef.current.pause();
+        setIsPlayingLiveAudio(false);
+      } else {
+        setIsConnectingAudio(true);
+        // Get the latest audio file for the selected company
+        console.log('Fetching audio history for company:', selectedCompany.symbol);
+        const audioHistory = await fetchAudioHistory(selectedCompany.symbol);
+        console.log('Audio history response:', audioHistory);
+        
+        if (!audioHistory || !Array.isArray(audioHistory) || audioHistory.length === 0) {
+          console.error('No audio files available:', audioHistory);
+          setIsConnectingAudio(false);
+          return;
+        }
+
+        // Get the most recent audio file
+        const latestAudio = audioHistory[0];
+        console.log('Latest audio file:', latestAudio);
+        
+        if (!latestAudio.audioAvailable) {
+          console.error('Audio file not available');
+          setIsConnectingAudio(false);
+          return;
+        }
+        
+        if (!latestAudio.audioUrl) {
+          console.error('Audio URL not found in response');
+          setIsConnectingAudio(false);
+          return;
+        }
+        
+        // Format the URL properly - audioUrl is already in the correct format from the backend
+        const audioUrl = `http://localhost:8000${latestAudio.audioUrl}`;
+        console.log('Playing audio from:', audioUrl);
+        
+        // Set the source and play
+        audioRef.current.src = audioUrl;
+        await audioRef.current.load(); // Load the audio first
+        await audioRef.current.play();
+        setIsPlayingLiveAudio(true);
+        setIsConnectingAudio(false);
+      }
+    } catch (error) {
+      console.error('Error playing audio:', error);
+      setIsPlayingLiveAudio(false);
+      setIsConnectingAudio(false);
+    }
+  };
+
   if (error) {
     return <div className="text-center p-4 text-red-500">{error}</div>;
   }
@@ -331,9 +389,9 @@ const AppContent: React.FC = () => {
                               {isCallOngoing && (
                                 <div className="flex items-center gap-2">
                                   <button
-                                    onClick={() => setIsListeningLive(!isListeningLive)}
+                                    onClick={handleLiveAudioPlayback}
                                     className={`text-sm px-3 py-1.5 rounded-full transition-all duration-200 flex items-center ${
-                                      isListeningLive
+                                      isPlayingLiveAudio
                                         ? (isDarkMode 
                                             ? 'bg-red-500/20 text-red-300 shadow-inner shadow-red-900/20' 
                                             : 'bg-red-100 text-red-700 shadow-inner shadow-red-100')
@@ -342,8 +400,22 @@ const AppContent: React.FC = () => {
                                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-lg hover:shadow-gray-200/50')
                                     }`}
                                   >
-                                    <Radio className={`w-4 h-4 ${isListeningLive ? 'animate-pulse' : ''} mr-1`} />
-                                    {isListeningLive ? 'Stop Listening' : 'Listen Live'}
+                                    {isPlayingLiveAudio ? (
+                                      <>
+                                        <Pause className="w-4 h-4 mr-1" />
+                                        Stop Listening
+                                      </>
+                                    ) : isConnectingAudio ? (
+                                      <>
+                                        <Radio className="w-4 h-4 mr-1 animate-spin" />
+                                        Connecting...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Play className="w-4 h-4 mr-1" />
+                                        Listen Live
+                                      </>
+                                    )}
                                   </button>
                                   <button
                                     onClick={() => setIsLiveCaptionOn(!isLiveCaptionOn)}
@@ -528,6 +600,16 @@ const AppContent: React.FC = () => {
           onClose={() => setShowFullSummary(false)}
         />
       )}
+
+      {/* Add audio element */}
+      <audio
+        ref={audioRef}
+        onEnded={() => setIsPlayingLiveAudio(false)}
+        onError={(e) => {
+          console.error('Audio error:', e);
+          setIsPlayingLiveAudio(false);
+        }}
+      />
     </div>
   );
 };
