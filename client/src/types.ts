@@ -19,6 +19,7 @@ export interface StockData {
   price: number | null;
   change: number | null;
   percentChange: number | null;
+  volumeChange: number | null;
   isLive: boolean;
   nextMarketOpen: number | null;
   lastUpdate: number;

@@ -18,6 +18,7 @@ import { fetchAudioHistory } from './services/audioService';
 import { fetchEarningsSchedule } from './services/earningsService';
 import MainHeader from './components/header/MainHeader';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
+import CallSummaryPanel from './components/CallSummaryPanel';
 
 type PriceUpdateCallback = (data: any) => void;
 
@@ -70,6 +71,7 @@ const AppContent: React.FC = () => {
       price: data.price,
       change: data.change,
       percentChange: data.percentChange,
+      volumeChange: null,
       lastUpdate: data.lastUpdate || Math.floor(Date.now() / 1000),
       isLive: data.isLive,
       nextMarketOpen: data.nextMarketOpen
@@ -296,7 +298,7 @@ const AppContent: React.FC = () => {
                       isDarkMode 
                         ? 'bg-gray-800/50 shadow-xl shadow-gray-900/50' 
                         : 'bg-white/90 shadow-xl shadow-gray-200/50'
-                    } backdrop-blur-sm relative overflow-hidden`}>
+                    } backdrop-blur-sm relative overflow-hidden h-[500px]`}>
                       <div className={`absolute inset-0 opacity-20 bg-gradient-to-br ${
                         isDarkMode 
                           ? 'from-indigo-500/10 via-transparent to-purple-500/10' 
@@ -304,7 +306,7 @@ const AppContent: React.FC = () => {
                       }`} />
                       
                       {/* Content */}
-                      <div className="relative z-10">
+                      <div className="relative z-10 h-full flex flex-col">
                         {/* Header Section */}
                         <div className="border-b border-gray-200 dark:border-gray-700 pb-4 mb-6">
                           <div className="flex flex-col space-y-4">
@@ -393,9 +395,11 @@ const AppContent: React.FC = () => {
                         </div>
 
                         {/* Content Section */}
-                        <div className={`space-y-4 max-h-[200px] overflow-y-auto custom-scrollbar rounded-lg ${
-                          isDarkMode ? 'bg-gray-800/30' : 'bg-gray-50/80'
-                        } p-4`}>
+                        <div className={`flex-1 space-y-4 overflow-y-auto custom-scrollbar rounded-lg border ${
+                          isDarkMode 
+                            ? 'bg-gray-800/30 border-gray-700' 
+                            : 'bg-gray-50/80 border-gray-200'
+                        } p-2`}>
                           {isCallOngoing && isLiveCaptionOn ? (
                             <div className="animate-pulse flex flex-col items-center justify-center h-[120px] gap-3">
                               <Radio className="w-8 h-8 text-red-500" />
@@ -413,7 +417,7 @@ const AppContent: React.FC = () => {
                           ) : selectedTranscript?.transcript?.slice(0, 3).map((item: any, index: number) => (
                             <div 
                               key={index} 
-                              className={`animate-slide-in p-4 rounded-lg ${
+                              className={`animate-slide-in p-3 rounded-lg ${
                                 isDarkMode 
                                   ? 'bg-gray-800/50 hover:bg-gray-800/70' 
                                   : 'bg-white hover:bg-white/80'
@@ -444,50 +448,30 @@ const AppContent: React.FC = () => {
                       isDarkMode 
                         ? 'bg-gray-800/50 shadow-xl shadow-gray-900/50' 
                         : 'bg-white/90 shadow-xl shadow-gray-200/50'
-                    } backdrop-blur-sm relative overflow-hidden`}>
-                      <div className={`absolute inset-0 opacity-20 bg-gradient-to-br ${
-                        isDarkMode 
-                          ? 'from-green-500/10 via-transparent to-emerald-500/10' 
-                          : 'from-green-200/50 via-transparent to-emerald-200/50'
-                      }`} />
-                      
-                      {/* Content */}
-                      <div className="relative z-10">
-                        <div className="flex justify-between items-center mb-4">
-                          <h3 className={`text-lg font-medium ${
-                            isDarkMode ? 'text-gray-100' : 'text-gray-900'
-                          }`}>
-                            Key Highlights
-                          </h3>
-                          <button 
-                            onClick={() => setShowFullSummary(true)}
-                            className={`text-sm hover:underline transition-colors duration-200 ${
-                              isDarkMode 
-                                ? 'text-indigo-400 hover:text-indigo-300' 
-                                : 'text-indigo-600 hover:text-indigo-700'
-                            }`}
-                          >
-                            View Full Summary
-                          </button>
-                        </div>
-                        {selectedTranscript?.summary && (
-                          <div className="space-y-3 max-h-[200px] overflow-y-auto custom-scrollbar">
-                            {selectedTranscript.summary.keyHighlights.map((highlight: string, index: number) => (
-                              <div 
-                                key={index} 
-                                className={`p-3 rounded-lg animate-slide-in ${
-                                  isDarkMode
-                                    ? 'bg-green-900/20 text-green-200'
-                                    : 'bg-green-50 text-green-800'
-                                }`}
-                                style={{ animationDelay: `${index * 100}ms` }}
-                              >
-                                <p>{highlight}</p>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                    } backdrop-blur-sm relative overflow-hidden h-[500px]`}>
+                      <CallSummaryPanel
+                        call={{
+                          company: selectedCompany.name,
+                          symbol: selectedCompany.symbol,
+                          date: selectedTranscript?.date || '',
+                          time: selectedTranscript?.time || '',
+                          status: selectedCompany.status,
+                          actualEPS: selectedTranscript?.summary?.financialPerformance?.eps?.actual,
+                          expectedEPS: selectedTranscript?.summary?.financialPerformance?.eps?.expected,
+                          revenue: selectedTranscript?.summary?.financialPerformance?.revenue,
+                          keyHighlights: selectedTranscript?.summary?.keyHighlights,
+                          guidance: {
+                            revenue: selectedTranscript?.summary?.guidance?.revenue,
+                            eps: selectedTranscript?.summary?.guidance?.eps
+                          },
+                          marketImpact: {
+                            priceChange: stockData?.percentChange || 0,
+                            volumeChange: stockData?.volumeChange || 0
+                          },
+                          sentiment: selectedTranscript?.summary?.sentiment
+                        }}
+                        onViewFullSummary={() => setShowFullSummary(true)}
+                      />
                     </div>
                   </div>
                 </>
