@@ -14,6 +14,7 @@ import {
   Sun,
   LogIn
 } from 'lucide-react';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface NavItem {
   id: string;
@@ -29,7 +30,7 @@ interface MainHeaderProps {
 
 const MainHeader: React.FC<MainHeaderProps> = ({ isMarketOpen, nextMarketOpen }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const { isDarkMode, toggleTheme } = useTheme();
 
   const mainNavItems: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: <Home className="w-4 h-4" /> },
@@ -47,34 +48,36 @@ const MainHeader: React.FC<MainHeaderProps> = ({ isMarketOpen, nextMarketOpen })
   ];
 
   return (
-    <header className="bg-white border-b border-gray-200">
-      <div className="flex w-full items-center h-16">
+    <header className={`${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'} border-b transition-colors duration-200 ease-in-out sticky top-0 z-50 backdrop-blur-sm bg-opacity-90`}>
+      <div className="flex w-full items-center h-16 px-4 md:px-6">
         {/* Logo and Title - Left edge */}
-        <div className="flex items-center pl-6">
+        <div className="flex items-center">
           <img 
             src="/images/logo.jpg" 
             alt="Logo" 
-            className="h-8 w-auto"
+            className="h-8 w-auto rounded-md shadow-sm transition-transform duration-200 hover:scale-105"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
               target.src = 'https://via.placeholder.com/32';
             }}
           />
-          <span className="ml-3 text-xl font-semibold text-gray-900">Earning Call Advisor</span>
+          <span className={`ml-3 text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'} transition-colors duration-200`}>
+            Earning Call Advisor
+          </span>
         </div>
 
         {/* Market Status - Between Title and Navigation */}
         <div className="ml-6 mr-4">
           {isMarketOpen ? (
-            <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+            <span className="px-3 py-1.5 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-100 rounded-full text-sm font-medium shadow-sm transition-all duration-200 hover:shadow-md">
               Market Open
             </span>
           ) : nextMarketOpen ? (
-            <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">
+            <span className="px-3 py-1.5 bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-100 rounded-full text-sm font-medium shadow-sm transition-all duration-200 hover:shadow-md">
               Opens {formatDistanceToNow(new Date(nextMarketOpen * 1000), { addSuffix: true })}
             </span>
           ) : (
-            <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium">
+            <span className="px-3 py-1.5 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100 rounded-full text-sm font-medium shadow-sm transition-all duration-200 hover:shadow-md">
               Market Closed
             </span>
           )}
@@ -82,34 +85,42 @@ const MainHeader: React.FC<MainHeaderProps> = ({ isMarketOpen, nextMarketOpen })
 
         {/* Main Navigation - Centered */}
         <div className="flex-1">
-          <nav className="flex justify-center space-x-4">
+          <nav className="flex justify-center space-x-1 md:space-x-2">
             {mainNavItems.map((item) => (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${
+                className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                   activeTab === item.id
-                    ? 'bg-indigo-100 text-indigo-700'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                    ? isDarkMode 
+                      ? 'bg-indigo-900/50 text-indigo-300 shadow-lg shadow-indigo-900/20'
+                      : 'bg-indigo-100 text-indigo-700 shadow-md'
+                    : isDarkMode
+                      ? 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
+                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
                 }`}
               >
                 {item.icon}
-                <span className="ml-2">{item.label}</span>
+                <span className="ml-2 hidden md:inline">{item.label}</span>
               </button>
             ))}
           </nav>
         </div>
 
         {/* Optional Navigation and Login - Right edge */}
-        <div className="flex items-center space-x-4 pr-6">
+        <div className="flex items-center space-x-2 md:space-x-4">
           {optionalNavItems.map((item) => (
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`flex items-center p-2 rounded-md text-sm font-medium ${
+              className={`flex items-center p-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                 activeTab === item.id
-                  ? 'bg-indigo-100 text-indigo-700'
-                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                  ? isDarkMode 
+                    ? 'bg-indigo-900/50 text-indigo-300 shadow-lg shadow-indigo-900/20'
+                    : 'bg-indigo-100 text-indigo-700 shadow-md'
+                  : isDarkMode
+                    ? 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
               }`}
             >
               {item.icon}
@@ -117,19 +128,31 @@ const MainHeader: React.FC<MainHeaderProps> = ({ isMarketOpen, nextMarketOpen })
           ))}
 
           <button
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            className="p-2 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+            onClick={toggleTheme}
+            className={`p-2 rounded-lg transition-all duration-200 ${
+              isDarkMode
+                ? 'text-yellow-300 hover:bg-gray-800'
+                : 'text-gray-500 hover:bg-gray-100'
+            }`}
+            aria-label="Toggle theme"
           >
             {isDarkMode ? (
-              <Sun className="w-4 h-4" />
+              <Sun className="w-5 h-5 hover:rotate-90 transition-transform duration-500" />
             ) : (
-              <Moon className="w-4 h-4" />
+              <Moon className="w-5 h-5 hover:-rotate-90 transition-transform duration-500" />
             )}
           </button>
 
-          <button className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+          <button className={`
+            flex items-center px-4 py-2 rounded-lg font-medium
+            transition-all duration-200 transform hover:scale-105
+            ${isDarkMode
+              ? 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-900/50'
+              : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md'
+            }
+          `}>
             <LogIn className="w-4 h-4 mr-2" />
-            Login
+            <span className="hidden md:inline">Login</span>
           </button>
         </div>
       </div>

@@ -9,7 +9,7 @@ import FinancialMetrics from './components/analysis/FinancialMetrics';
 import InvestorReactions from './components/analysis/InvestorReactions';
 import MarketImpact from './components/analysis/MarketImpact';
 import News from './components/analysis/News';
-import { Headphones } from 'lucide-react';
+import { Headphones, FileText, Radio, ToggleLeft, ToggleRight } from 'lucide-react';
 import TranscriptModal from './components/modals/TranscriptModal';
 import SummaryModal from './components/modals/SummaryModal';
 import { StockWebSocket } from './services/stockWebSocket';
@@ -17,6 +17,7 @@ import { fetchCompanyTranscripts, prefetchAllTranscripts } from './services/tran
 import { fetchAudioHistory } from './services/audioService';
 import { fetchEarningsSchedule } from './services/earningsService';
 import MainHeader from './components/header/MainHeader';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 
 type PriceUpdateCallback = (data: any) => void;
 
@@ -31,7 +32,7 @@ interface WebSocketMessage {
   lastUpdate?: number;
 }
 
-function App() {
+const AppContent: React.FC = () => {
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [activeTab, setActiveTab] = useState<AnalysisTab>('sentiment');
   const [showAudioHistory, setShowAudioHistory] = useState(false);
@@ -50,6 +51,9 @@ function App() {
   const [loadingStockData, setLoadingStockData] = useState(true);
   const [isMarketOpen, setIsMarketOpen] = useState(false);
   const [nextMarketOpen, setNextMarketOpen] = useState<number | null>(null);
+  const { isDarkMode } = useTheme();
+  const [isLiveCaptionOn, setIsLiveCaptionOn] = useState(false);
+  const [isListeningLive, setIsListeningLive] = useState(false);
 
   const stockWebSocket = StockWebSocket.getInstance();
 
@@ -203,6 +207,10 @@ function App() {
     }
   };
 
+  const isCallOngoing = selectedCompany && earningsData.find(
+    call => call.company === selectedCompany.name && call.status === 'ongoing'
+  );
+
   const renderAnalysisContent = () => {
     switch (activeTab) {
       case 'sentiment':
@@ -225,127 +233,326 @@ function App() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-white">
-      <MainHeader 
-        isMarketOpen={isMarketOpen}
-        nextMarketOpen={nextMarketOpen}
-      />
-      <div className="flex flex-1">
-        <Sidebar 
-          selectedCompany={selectedCompany}
-          calls={earningsData}
-          onSelectCompany={onSelectCompany}
-          isLoading={isLoadingEarnings}
-          stockData={sidebarStockData}
-        />
+    <div className={`min-h-screen relative ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+      {/* Background Pattern */}
+      <div className="absolute inset-0 z-0">
+        {/* Main dot pattern */}
+        <div className={`absolute inset-0 ${
+          isDarkMode 
+            ? 'bg-[radial-gradient(#ffffff22_1px,transparent_1px)] bg-[size:24px_24px]' 
+            : 'bg-[radial-gradient(#00000022_1px,transparent_1px)] bg-[size:24px_24px]'
+        }`} />
+        {/* Secondary smaller dot pattern for depth */}
+        <div className={`absolute inset-0 ${
+          isDarkMode 
+            ? 'bg-[radial-gradient(#ffffff11_1px,transparent_1px)] bg-[size:16px_16px]' 
+            : 'bg-[radial-gradient(#00000011_1px,transparent_1px)] bg-[size:16px_16px]'
+        }`} />
+        {/* Gradient overlay */}
+        <div className={`absolute inset-0 ${
+          isDarkMode 
+            ? 'bg-gradient-to-br from-indigo-900/20 via-transparent to-purple-900/20' 
+            : 'bg-gradient-to-br from-indigo-100/50 via-transparent to-purple-100/50'
+        }`} />
+      </div>
 
-        <div className="flex-1 overflow-auto">
-          <div className="p-8">
-            <div className="flex items-center justify-between mb-8">
-              {selectedCompany && (
+      {/* Main Content */}
+      <div className="relative z-10">
+        <MainHeader 
+          isMarketOpen={isMarketOpen}
+          nextMarketOpen={nextMarketOpen}
+        />
+        <div className="flex">
+          <Sidebar 
+            selectedCompany={selectedCompany}
+            calls={earningsData}
+            onSelectCompany={onSelectCompany}
+            isLoading={isLoadingEarnings}
+            stockData={sidebarStockData}
+          />
+          <main className={`flex-1 min-h-screen shadow-inner ${
+            isDarkMode 
+              ? 'bg-gray-800/95 shadow-2xl shadow-gray-900/50 shadow-inner-xl' 
+              : 'bg-gray-50/95'
+          }`}>
+            <div className={`container mx-auto px-4 py-8 ${
+              isDarkMode ? 'text-gray-100' : 'text-gray-900'
+            }`}>
+              <div className="mb-8">
                 <CompanyHeader 
-                  company={selectedCompany.name}
+                  company={selectedCompany?.name || ''}
                   currentPrice={stockData?.price ?? null}
                   priceChange={stockData?.change ?? null}
                   priceChangePercent={stockData?.percentChange ?? null}
                   lastUpdate={stockData?.lastUpdate ?? Math.floor(Date.now() / 1000)}
-                  isLoading={loadingStockData}
+                  isLoading={isLoadingStockPrice}
                 />
-              )}
-              {selectedCompany && (
-                <button 
-                  className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-                  onClick={() => setShowAudioHistory(true)}
-                >
-                  <Headphones className="w-5 h-5 mr-2" />
-                  Listen to Call
-                </button>
-              )}
-            </div>
-
-            {selectedCompany ? (
-              <>
-                <div className="grid grid-cols-2 gap-6 mb-8">
-                  {/* Transcript Section */}
-                  <div className="bg-white rounded-lg border border-gray-200 p-4">
-                    <div className="flex justify-between items-center mb-3">
-                      <h3 className="text-lg font-medium">Call Transcription</h3>
-                      <button 
-                        onClick={() => setShowFullTranscript(true)}
-                        className="text-indigo-600 text-sm hover:text-indigo-800"
-                      >
-                        View Full Transcript
-                      </button>
-                    </div>
-                    <div className="space-y-3 max-h-[200px] overflow-y-auto">
-                      {selectedTranscript?.transcript?.slice(0, 3).map((item: any, index: number) => (
-                        <div key={index}>
-                          <p className="font-medium text-gray-900">{item.name}:</p>
-                          <p className="text-gray-600">{item.speech}</p>
+              </div>
+              {selectedCompany ? (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    {/* Transcript Section */}
+                    <div className={`p-6 rounded-xl ${
+                      isDarkMode 
+                        ? 'bg-gray-800/50 shadow-xl shadow-gray-900/50' 
+                        : 'bg-white/90 shadow-xl shadow-gray-200/50'
+                    } backdrop-blur-sm relative overflow-hidden`}>
+                      <div className={`absolute inset-0 opacity-20 bg-gradient-to-br ${
+                        isDarkMode 
+                          ? 'from-indigo-500/10 via-transparent to-purple-500/10' 
+                          : 'from-indigo-200/50 via-transparent to-purple-200/50'
+                      }`} />
+                      
+                      {/* Content */}
+                      <div className="relative z-10">
+                        {/* Header Section */}
+                        <div className="border-b border-gray-200 dark:border-gray-700 pb-4 mb-6">
+                          <div className="flex flex-col space-y-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <h3 className={`text-xl font-semibold ${
+                                  isDarkMode ? 'text-gray-100' : 'text-gray-900'
+                                }`}>
+                                  Call Transcription
+                                </h3>
+                                {isCallOngoing && (
+                                  <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center ${
+                                    isDarkMode ? 'bg-red-500/20' : 'bg-red-100'
+                                  }`}>
+                                    <Radio className="w-3 h-3 text-red-500 animate-pulse mr-1" />
+                                    <span className={
+                                      isDarkMode ? 'text-red-400' : 'text-red-600'
+                                    }>LIVE</span>
+                                  </span>
+                                )}
+                              </div>
+                              {isCallOngoing && (
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => setIsListeningLive(!isListeningLive)}
+                                    className={`text-sm px-3 py-1.5 rounded-full transition-all duration-200 flex items-center ${
+                                      isListeningLive
+                                        ? (isDarkMode 
+                                            ? 'bg-red-500/20 text-red-300 shadow-inner shadow-red-900/20' 
+                                            : 'bg-red-100 text-red-700 shadow-inner shadow-red-100')
+                                        : (isDarkMode
+                                            ? 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:shadow-lg hover:shadow-gray-900/20'
+                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-lg hover:shadow-gray-200/50')
+                                    }`}
+                                  >
+                                    <Radio className={`w-4 h-4 ${isListeningLive ? 'animate-pulse' : ''} mr-1`} />
+                                    {isListeningLive ? 'Stop Listening' : 'Listen Live'}
+                                  </button>
+                                  <button
+                                    onClick={() => setIsLiveCaptionOn(!isLiveCaptionOn)}
+                                    className={`text-sm px-3 py-1.5 rounded-full transition-all duration-200 flex items-center ${
+                                      isLiveCaptionOn
+                                        ? (isDarkMode
+                                            ? 'bg-green-500/20 text-green-300 shadow-inner shadow-green-900/20'
+                                            : 'bg-green-100 text-green-700 shadow-inner shadow-green-100')
+                                        : (isDarkMode
+                                            ? 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:shadow-lg hover:shadow-gray-900/20'
+                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-lg hover:shadow-gray-200/50')
+                                    }`}
+                                  >
+                                    {isLiveCaptionOn 
+                                      ? <ToggleRight className="w-4 h-4 mr-1 text-green-500" />
+                                      : <ToggleLeft className="w-4 h-4 mr-1" />
+                                    }
+                                    Live Caption
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center justify-end space-x-4">
+                              <button
+                                onClick={() => setShowAudioHistory(true)}
+                                className={`text-sm hover:underline transition-colors duration-200 flex items-center ${
+                                  isDarkMode 
+                                    ? 'text-indigo-400 hover:text-indigo-300' 
+                                    : 'text-indigo-600 hover:text-indigo-700'
+                                }`}
+                              >
+                                <Headphones className="w-4 h-4 mr-1" />
+                                Listen Past Calls
+                              </button>
+                              <div className={`h-4 w-px ${isDarkMode ? 'bg-gray-700' : 'bg-gray-300'}`} />
+                              <button
+                                onClick={() => setShowFullTranscript(true)}
+                                className={`text-sm hover:underline transition-colors duration-200 flex items-center ${
+                                  isDarkMode 
+                                    ? 'text-indigo-400 hover:text-indigo-300' 
+                                    : 'text-indigo-600 hover:text-indigo-700'
+                                }`}
+                              >
+                                <FileText className="w-4 h-4 mr-1" />
+                                Full Transcription
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                      ))}
+
+                        {/* Content Section */}
+                        <div className={`space-y-4 max-h-[200px] overflow-y-auto custom-scrollbar rounded-lg ${
+                          isDarkMode ? 'bg-gray-800/30' : 'bg-gray-50/80'
+                        } p-4`}>
+                          {isCallOngoing && isLiveCaptionOn ? (
+                            <div className="animate-pulse flex flex-col items-center justify-center h-[120px] gap-3">
+                              <Radio className="w-8 h-8 text-red-500" />
+                              <span className={`text-lg font-medium ${
+                                isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                              }`}>
+                                Listening for live captions...
+                              </span>
+                              <span className={`text-sm ${
+                                isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                              }`}>
+                                Transcription will appear here in real-time
+                              </span>
+                            </div>
+                          ) : selectedTranscript?.transcript?.slice(0, 3).map((item: any, index: number) => (
+                            <div 
+                              key={index} 
+                              className={`animate-slide-in p-4 rounded-lg ${
+                                isDarkMode 
+                                  ? 'bg-gray-800/50 hover:bg-gray-800/70' 
+                                  : 'bg-white hover:bg-white/80'
+                              } shadow-sm transition-all duration-200`}
+                              style={{ animationDelay: `${index * 100}ms` }}
+                            >
+                              <p className={`font-medium flex items-center gap-2 ${
+                                isDarkMode ? 'text-gray-200' : 'text-gray-900'
+                              }`}>
+                                <span className={`inline-block w-2 h-2 rounded-full ${
+                                  isDarkMode ? 'bg-indigo-400' : 'bg-indigo-600'
+                                }`} />
+                                {item.name}
+                              </p>
+                              <p className={`mt-2 leading-relaxed ${
+                                isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                              }`}>
+                                {item.speech}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Summary Section */}
+                    <div className={`p-6 rounded-xl ${
+                      isDarkMode 
+                        ? 'bg-gray-800/50 shadow-xl shadow-gray-900/50' 
+                        : 'bg-white/90 shadow-xl shadow-gray-200/50'
+                    } backdrop-blur-sm relative overflow-hidden`}>
+                      <div className={`absolute inset-0 opacity-20 bg-gradient-to-br ${
+                        isDarkMode 
+                          ? 'from-green-500/10 via-transparent to-emerald-500/10' 
+                          : 'from-green-200/50 via-transparent to-emerald-200/50'
+                      }`} />
+                      
+                      {/* Content */}
+                      <div className="relative z-10">
+                        <div className="flex justify-between items-center mb-4">
+                          <h3 className={`text-lg font-medium ${
+                            isDarkMode ? 'text-gray-100' : 'text-gray-900'
+                          }`}>
+                            Key Highlights
+                          </h3>
+                          <button 
+                            onClick={() => setShowFullSummary(true)}
+                            className={`text-sm hover:underline transition-colors duration-200 ${
+                              isDarkMode 
+                                ? 'text-indigo-400 hover:text-indigo-300' 
+                                : 'text-indigo-600 hover:text-indigo-700'
+                            }`}
+                          >
+                            View Full Summary
+                          </button>
+                        </div>
+                        {selectedTranscript?.summary && (
+                          <div className="space-y-3 max-h-[200px] overflow-y-auto custom-scrollbar">
+                            {selectedTranscript.summary.keyHighlights.map((highlight: string, index: number) => (
+                              <div 
+                                key={index} 
+                                className={`p-3 rounded-lg animate-slide-in ${
+                                  isDarkMode
+                                    ? 'bg-green-900/20 text-green-200'
+                                    : 'bg-green-50 text-green-800'
+                                }`}
+                                style={{ animationDelay: `${index * 100}ms` }}
+                              >
+                                <p>{highlight}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
+                </>
+              ) : (
+                <div className="text-center py-12">
+                  <h2 className={`text-2xl font-semibold ${
+                    isDarkMode ? 'text-gray-200' : 'text-gray-700'
+                  }`}>
+                    Select a company from the sidebar to view analysis
+                  </h2>
+                </div>
+              )}
 
-                  {/* Summary Section */}
-                  <div className="bg-white rounded-lg border border-gray-200 p-4">
-                    <div className="flex justify-between items-center mb-3">
-                      <h3 className="text-lg font-medium">Key Highlights</h3>
-                      <button 
-                        onClick={() => setShowFullSummary(true)}
-                        className="text-indigo-600 text-sm hover:text-indigo-800"
-                      >
-                        View Full Summary
-                      </button>
-                    </div>
-                    {selectedTranscript?.summary && (
-                      <div className="space-y-3 max-h-[200px] overflow-y-auto">
-                        {selectedTranscript.summary.keyHighlights.map((highlight: string, index: number) => (
-                          <div key={index} className="bg-green-50 p-2 rounded-md">
-                            <p className="text-green-800">{highlight}</p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+              <div className={`mt-8 rounded-xl p-6 ${
+                isDarkMode 
+                  ? 'bg-gray-800/50 shadow-xl shadow-gray-900/50' 
+                  : 'bg-white/90 shadow-xl shadow-gray-200/50'
+              } relative overflow-hidden backdrop-blur-sm`}>
+                {/* Content */}
+                <div className="relative z-10">
+                  <AnalysisTabs
+                    activeTab={activeTab}
+                    onTabChange={setActiveTab}
+                  />
+                  <div className="mt-6">
+                    {renderAnalysisContent()}
                   </div>
                 </div>
-
-                <AnalysisTabs 
-                  activeTab={activeTab}
-                  onTabChange={setActiveTab}
-                />
-
-                {renderAnalysisContent()}
-              </>
-            ) : (
-              <div className="text-center text-gray-500 mt-8">
-                Please select a company from the sidebar
               </div>
-            )}
-          </div>
+            </div>
+          </main>
         </div>
       </div>
 
+      {/* Modals */}
       {showAudioHistory && (
-        <AudioHistoryModal 
-          onClose={() => setShowAudioHistory(false)}
+        <AudioHistoryModal
           audioHistory={audioHistory}
+          onClose={() => setShowAudioHistory(false)}
         />
       )}
 
       {showFullTranscript && selectedTranscript && (
-        <TranscriptModal 
-          onClose={() => setShowFullTranscript(false)}
+        <TranscriptModal
           transcripts={transcripts}
           currentTranscript={selectedTranscript}
           onTranscriptSelect={setSelectedTranscript}
+          onClose={() => setShowFullTranscript(false)}
         />
       )}
 
-      {showFullSummary && (
-        <SummaryModal onClose={() => setShowFullSummary(false)} />
+      {showFullSummary && selectedTranscript && (
+        <SummaryModal
+          onClose={() => setShowFullSummary(false)}
+        />
       )}
     </div>
+  );
+};
+
+function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 }
 

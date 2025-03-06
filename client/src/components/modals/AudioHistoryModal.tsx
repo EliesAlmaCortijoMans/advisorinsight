@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Play, Pause, Calendar, Volume2, VolumeX, Subtitles } from 'lucide-react';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface AudioFile {
   id: string;
@@ -22,6 +23,7 @@ declare global {
 }
 
 const AudioHistoryModal: React.FC<AudioHistoryModalProps> = ({ onClose, audioHistory }) => {
+  const { isDarkMode } = useTheme();
   const [selectedAudio, setSelectedAudio] = useState<AudioFile | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,10 +97,16 @@ const AudioHistoryModal: React.FC<AudioHistoryModalProps> = ({ onClose, audioHis
         setIsPlaying(true);
         setError(null);
         setCurrentTime(0);
+        // Reset captions when changing audio
+        if (showCaptions) {
+          setCaptions('');
+          cleanupAudioProcessing();
+          await setupAudioProcessing();
+        }
       }
     } catch (err) {
       console.error('Error playing audio:', err);
-      setError('Failed to play audio file');
+      // Don't set error message, just log it
     }
   };
 
@@ -164,20 +172,34 @@ const AudioHistoryModal: React.FC<AudioHistoryModalProps> = ({ onClose, audioHis
   const setupAudioProcessing = useCallback(async () => {
     if (!audioRef.current) return;
 
+    // Add helper function to find text overlap
+    const findOverlap = (str1: string, str2: string): string => {
+      if (!str1 || !str2) return '';
+      let overlap = '';
+      const minLength = Math.min(str1.length, str2.length);
+      for (let i = 1; i <= minLength; i++) {
+        const end = str1.slice(-i);
+        const start = str2.slice(0, i);
+        if (end === start) {
+          overlap = end;
+        }
+      }
+      return overlap;
+    };
+
     try {
+      // Clean up any existing audio processing
+      cleanupAudioProcessing();
+
       // Create audio context
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
       
       // Get the audio stream directly from the audio element
       const stream = audioRef.current.captureStream();
       
-      // Check supported MIME types
-      const mimeType = 'audio/webm;codecs=opus';  // Stick with WebM as it's most reliable
-      console.log('Using MIME type:', mimeType);
-      
       // Create MediaRecorder
       const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: mimeType,
+        mimeType: 'audio/webm;codecs=opus',
         bitsPerSecond: 128000
       });
 
@@ -187,19 +209,15 @@ const AudioHistoryModal: React.FC<AudioHistoryModalProps> = ({ onClose, audioHis
       wsRef.current.onmessage = (event) => {
         const data = JSON.parse(event.data);
         if (data.type === 'transcription') {
-          // Only add new text if it's not already in the captions
           setCaptions(prev => {
             const newText = data.text.trim();
-            // If the previous text ends with the new text, don't add it
             if (prev.endsWith(newText)) {
               return prev;
             }
-            // If the new text contains part of the previous text, remove the overlap
             const overlap = findOverlap(prev, newText);
             if (overlap) {
               return prev + newText.slice(overlap.length);
             }
-            // Otherwise, add with a space
             return prev + (prev ? ' ' : '') + newText;
           });
         } else if (data.type === 'error') {
@@ -217,30 +235,11 @@ const AudioHistoryModal: React.FC<AudioHistoryModalProps> = ({ onClose, audioHis
         }
       };
 
-      // Add helper function to find text overlap
-      const findOverlap = (str1: string, str2: string): string => {
-        if (!str1 || !str2) return '';
-        let overlap = '';
-        const minLength = Math.min(str1.length, str2.length);
-        for (let i = 1; i <= minLength; i++) {
-          const end = str1.slice(-i);
-          const start = str2.slice(0, i);
-          if (end === start) {
-            overlap = end;
-          }
-        }
-        return overlap;
-      };
-
       // Handle audio chunks
-      let chunks: Blob[] = [];
       mediaRecorder.ondataavailable = async (event) => {
         if (event.data.size > 0 && wsRef.current?.readyState === WebSocket.OPEN) {
           try {
-            // Create a new blob with explicit WebM type
             const audioBlob = new Blob([event.data], { type: 'audio/webm' });
-            
-            // Convert to base64
             const reader = new FileReader();
             reader.onloadend = () => {
               const base64data = (reader.result as string)?.split(',')[1];
@@ -293,9 +292,18 @@ const AudioHistoryModal: React.FC<AudioHistoryModalProps> = ({ onClose, audioHis
 
   // Add effect to handle audio context setup when playing changes
   useEffect(() => {
-    if (isPlaying && showCaptions && !audioContextRef.current) {
-      setupAudioProcessing();
-    }
+    const setupAudioAndCaptions = async () => {
+      if (isPlaying && showCaptions && !audioContextRef.current && audioRef.current) {
+        try {
+          await setupAudioProcessing();
+        } catch (err) {
+          console.error('Error setting up audio processing:', err);
+          // Silently handle the error but keep captions enabled
+        }
+      }
+    };
+
+    setupAudioAndCaptions();
   }, [isPlaying, showCaptions, setupAudioProcessing]);
 
   useEffect(() => {
@@ -321,8 +329,19 @@ const AudioHistoryModal: React.FC<AudioHistoryModalProps> = ({ onClose, audioHis
             audioRef.current.volume = volume;
 
             // Wait for metadata to load
-            await new Promise((resolve) => {
-              audioRef.current!.addEventListener('loadedmetadata', resolve, { once: true });
+            await new Promise((resolve, reject) => {
+              const loadHandler = () => {
+                resolve(true);
+                audioRef.current?.removeEventListener('loadedmetadata', loadHandler);
+                audioRef.current?.removeEventListener('error', errorHandler);
+              };
+              const errorHandler = () => {
+                reject(new Error('Failed to load audio'));
+                audioRef.current?.removeEventListener('loadedmetadata', loadHandler);
+                audioRef.current?.removeEventListener('error', errorHandler);
+              };
+              audioRef.current!.addEventListener('loadedmetadata', loadHandler);
+              audioRef.current!.addEventListener('error', errorHandler);
             });
 
             // Set initial duration
@@ -334,7 +353,8 @@ const AudioHistoryModal: React.FC<AudioHistoryModalProps> = ({ onClose, audioHis
             }
           } catch (err) {
             console.error('Error loading audio:', err);
-            setError('Failed to load audio');
+            // Don't set error message, just log it
+            setIsPlaying(false);
           }
         }
       };
@@ -344,227 +364,232 @@ const AudioHistoryModal: React.FC<AudioHistoryModalProps> = ({ onClose, audioHis
   }, [selectedAudio]);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg w-11/12 max-w-7xl h-[80vh] flex overflow-hidden">
-        {/* Sidebar with audio list */}
-        <div className="w-64 border-r border-gray-200 bg-gray-50 p-4 overflow-y-auto">
-          <h3 className="text-lg font-semibold mb-4">Available Recordings</h3>
-          <div className="space-y-2">
-            {audioHistory.map((audio) => (
-              <button
-                key={audio.id}
-                onClick={() => handlePlay(audio)}
-                className={`w-full text-left p-3 rounded-lg transition-colors ${
-                  selectedAudio?.id === audio.id
-                    ? 'bg-indigo-50 text-indigo-700'
-                    : 'hover:bg-gray-100'
-                }`}
-                disabled={!audio.audioAvailable}
-              >
-                <div className="font-medium">{audio.title || 'Earnings Call'}</div>
-                {audio.time && (
-                  <div className="text-sm text-gray-500 flex items-center mt-1">
-                    <Calendar className="w-4 h-4 mr-1" />
-                    {formatDate(audio.time)}
-                  </div>
-                )}
-                {!audio.audioAvailable && (
-                  <div className="text-xs text-red-500 mt-1">
-                    Audio not available
-                  </div>
-                )}
-              </button>
-            ))}
-          </div>
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center">
+        <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+          <div className="absolute inset-0 bg-gray-900/75 backdrop-blur-sm" onClick={onClose}></div>
         </div>
 
-        {/* Main content area */}
-        <div className="flex-1 flex flex-col">
-          <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-            <h3 className="text-xl font-semibold text-gray-900">
-              {selectedAudio ? selectedAudio.title : 'Select a Recording'}
+        <div className={`relative inline-block w-full max-w-4xl p-6 overflow-hidden text-left align-middle transition-all transform rounded-2xl shadow-xl ${
+          isDarkMode ? 'bg-gray-800' : 'bg-white'
+        }`}>
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <h3 className={`text-2xl font-semibold ${
+              isDarkMode ? 'text-gray-100' : 'text-gray-900'
+            }`}>
+              Audio History
             </h3>
             <button
               onClick={onClose}
-              className="text-gray-500 hover:text-gray-700"
+              className={`p-2 rounded-full transition-colors duration-200 ${
+                isDarkMode
+                  ? 'hover:bg-gray-700 text-gray-400 hover:text-gray-200'
+                  : 'hover:bg-gray-100 text-gray-500 hover:text-gray-700'
+              }`}
             >
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5" />
             </button>
           </div>
 
-          <div className="flex-1 flex flex-col">
-            {/* Audio player area */}
-            <div className="flex-1 p-6 flex flex-col">
-              {selectedAudio ? (
-                <>
-                  <div className="flex-1 flex flex-col">
-                    <div className="text-center w-full mb-4">
-                      <div className="bg-gray-100 rounded-lg p-8">
-                        <div className="h-32 bg-indigo-100 rounded-lg flex items-center justify-center">
-                          <span className="text-indigo-600">
-                            {isPlaying ? 'Now Playing' : 'Ready to Play'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Captions area */}
-                    {showCaptions && (
-                      <div className="mb-4 p-4 bg-gray-50 rounded-lg max-h-48 overflow-y-auto">
-                        {isTranscribing ? (
-                          <div className="text-center text-gray-500">
-                            Generating captions...
-                          </div>
-                        ) : (
-                          <p className="text-gray-700 whitespace-pre-wrap">
-                            {captions || 'No captions available'}
-                          </p>
-                        )}
-                      </div>
+          {/* Audio List */}
+          <div className={`space-y-2 mb-6 ${
+            isDarkMode ? 'divide-gray-700' : 'divide-gray-200'
+          }`}>
+            {audioHistory.map((audio) => (
+              <div
+                key={audio.id}
+                className={`flex items-center justify-between p-4 rounded-lg transition-all duration-200 ${
+                  selectedAudio?.id === audio.id
+                    ? isDarkMode
+                      ? 'bg-indigo-900/30 ring-1 ring-indigo-500/50'
+                      : 'bg-indigo-50 ring-1 ring-indigo-500/50'
+                    : isDarkMode
+                      ? 'hover:bg-gray-700/50'
+                      : 'hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center space-x-4">
+                  <button
+                    onClick={() => handlePlay(audio)}
+                    disabled={!audio.audioAvailable}
+                    className={`p-2 rounded-full transition-all duration-200 ${
+                      audio.audioAvailable
+                        ? isDarkMode
+                          ? 'hover:bg-indigo-900/50 text-indigo-400 hover:text-indigo-300'
+                          : 'hover:bg-indigo-100 text-indigo-600 hover:text-indigo-700'
+                        : isDarkMode
+                          ? 'text-gray-600 cursor-not-allowed'
+                          : 'text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    {selectedAudio?.id === audio.id && isPlaying ? (
+                      <Pause className="w-5 h-5" />
+                    ) : (
+                      <Play className="w-5 h-5" />
                     )}
-                  </div>
-                  
-                  {/* Audio controls */}
-                  <div className="mt-auto">
-                    {/* Timeline */}
-                    <div className="mb-4">
-                      <div className="flex justify-between text-sm text-gray-500 mb-1">
-                        <span>{formatTime(currentTime)}</span>
-                        <span>{formatTime(duration)}</span>
-                      </div>
-                      <div className="relative h-2">
-                        <input
-                          type="range"
-                          min="0"
-                          max={duration || 100}
-                          step="1"
-                          value={currentTime}
-                          onChange={handleTimelineChange}
-                          onMouseDown={handleTimelineMouseDown}
-                          onMouseUp={handleTimelineMouseUp}
-                          onTouchStart={handleTimelineMouseDown}
-                          onTouchEnd={handleTimelineMouseUp}
-                          className="absolute w-full h-full opacity-0 cursor-pointer z-10"
-                        />
-                        <div className="absolute w-full h-full bg-gray-200 rounded-full">
-                          <div 
-                            className="h-full bg-indigo-600 rounded-full"
-                            style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Playback controls */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <button
-                          onClick={handlePlayPauseButton}
-                          className="p-2 rounded-full hover:bg-gray-100"
-                        >
-                          {isPlaying ? (
-                            <Pause className="w-6 h-6 text-gray-700" />
-                          ) : (
-                            <Play className="w-6 h-6 text-gray-700" />
-                          )}
-                        </button>
-
-                        {/* Caption toggle button */}
-                        <button
-                          onClick={toggleCaptions}
-                          className={`p-2 rounded-full hover:bg-gray-100 ${
-                            showCaptions ? 'bg-indigo-100 text-indigo-600' : 'text-gray-700'
-                          }`}
-                        >
-                          <Subtitles className="w-6 h-6" />
-                        </button>
-                      </div>
-                      
-                      {/* Volume control */}
-                      <div className="flex items-center space-x-2" style={{ width: '120px' }}>
-                        <button
-                          onClick={() => {
-                            setIsMuted(!isMuted);
-                            if (audioRef.current) {
-                              audioRef.current.volume = isMuted ? volume : 0;
-                            }
-                          }}
-                          className="p-1 hover:bg-gray-100 rounded"
-                        >
-                          {isMuted ? (
-                            <VolumeX className="w-4 h-4 text-gray-500" />
-                          ) : (
-                            <Volume2 className="w-4 h-4 text-gray-500" />
-                          )}
-                        </button>
-                        <div className="relative flex-1 h-1">
-                          <input
-                            type="range"
-                            min="0"
-                            max="1"
-                            step="0.1"
-                            value={isMuted ? 0 : volume}
-                            onChange={(e) => {
-                              const value = parseFloat(e.target.value);
-                              setVolume(value);
-                              setIsMuted(value === 0);
-                              if (audioRef.current) {
-                                audioRef.current.volume = value;
-                              }
-                            }}
-                            className="absolute w-full h-full opacity-0 cursor-pointer z-10"
-                          />
-                          <div className="absolute w-full h-full bg-gray-200 rounded-full">
-                            <div 
-                              className="h-full bg-indigo-600 rounded-full"
-                              style={{ width: `${(isMuted ? 0 : volume) * 100}%` }}
-                            />
-                          </div>
-                        </div>
-                      </div>
+                  </button>
+                  <div>
+                    <h4 className={`font-medium ${
+                      isDarkMode ? 'text-gray-200' : 'text-gray-900'
+                    }`}>
+                      {audio.title}
+                    </h4>
+                    <div className="flex items-center mt-1">
+                      <Calendar className={`w-4 h-4 mr-1 ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                      }`} />
+                      <span className={`text-sm ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                      }`}>
+                        {formatDate(audio.time)}
+                      </span>
                     </div>
                   </div>
-                </>
-              ) : (
-                <div className="flex-1 flex items-center justify-center text-gray-500">
-                  Select an earnings call recording from the sidebar to listen
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Audio Player */}
+          {selectedAudio && (
+            <div className={`p-4 rounded-lg ${
+              isDarkMode ? 'bg-gray-700/50' : 'bg-gray-50'
+            }`}>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex-1">
+                  <input
+                    type="range"
+                    min="0"
+                    max={duration || 100}
+                    value={currentTime}
+                    onChange={handleTimelineChange}
+                    onMouseDown={handleTimelineMouseDown}
+                    onMouseUp={handleTimelineMouseUp}
+                    className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-indigo-600 dark:accent-indigo-400"
+                  />
+                  <div className="flex justify-between mt-1">
+                    <span className={`text-sm ${
+                      isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                    }`}>
+                      {formatTime(currentTime)}
+                    </span>
+                    <span className={`text-sm ${
+                      isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                    }`}>
+                      {formatTime(duration)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={handlePlayPauseButton}
+                  className={`p-2 rounded-full transition-colors duration-200 ${
+                    isDarkMode
+                      ? 'hover:bg-gray-600 text-gray-200'
+                      : 'hover:bg-gray-200 text-gray-700'
+                  }`}
+                >
+                  {isPlaying ? (
+                    <Pause className="w-6 h-6" />
+                  ) : (
+                    <Play className="w-6 h-6" />
+                  )}
+                </button>
+
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setIsMuted(!isMuted)}
+                    className={`p-2 rounded-full transition-colors duration-200 ${
+                      isDarkMode
+                        ? 'hover:bg-gray-600 text-gray-200'
+                        : 'hover:bg-gray-200 text-gray-700'
+                    }`}
+                  >
+                    {isMuted ? (
+                      <VolumeX className="w-5 h-5" />
+                    ) : (
+                      <Volume2 className="w-5 h-5" />
+                    )}
+                  </button>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value={isMuted ? 0 : volume}
+                    onChange={(e) => setVolume(parseFloat(e.target.value))}
+                    className="w-24 h-2 rounded-lg appearance-none cursor-pointer accent-indigo-600 dark:accent-indigo-400"
+                  />
+                </div>
+
+                <button
+                  onClick={toggleCaptions}
+                  className={`p-2 rounded-full transition-colors duration-200 ${
+                    showCaptions
+                      ? isDarkMode
+                        ? 'bg-indigo-900/50 text-indigo-300'
+                        : 'bg-indigo-100 text-indigo-600'
+                      : isDarkMode
+                        ? 'hover:bg-gray-600 text-gray-200'
+                        : 'hover:bg-gray-200 text-gray-700'
+                  }`}
+                >
+                  <Subtitles className="w-5 h-5" />
+                </button>
+              </div>
+
+              {showCaptions && (
+                <div className={`mt-4 p-4 rounded-lg ${
+                  isDarkMode ? 'bg-gray-800' : 'bg-white'
+                } border ${
+                  isDarkMode ? 'border-gray-700' : 'border-gray-200'
+                }`}>
+                  <p className={`text-sm ${
+                    isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                  }`}>
+                    {captions || 'Waiting for speech...'}
+                  </p>
                 </div>
               )}
             </div>
-          </div>
+          )}
+
+          {error && error.includes('Transcription') && (
+            <div className={`mt-4 p-4 rounded-lg ${
+              isDarkMode ? 'bg-yellow-900/20 text-yellow-200' : 'bg-yellow-50 text-yellow-800'
+            }`}>
+              {error}
+            </div>
+          )}
+
+          <audio
+            ref={audioRef}
+            src={selectedAudio ? getFullAudioUrl(selectedAudio.audioUrl) : ''}
+            crossOrigin="anonymous"
+            onTimeUpdate={() => {
+              if (!isSeeking && audioRef.current) {
+                setCurrentTime(audioRef.current.currentTime);
+              }
+            }}
+            onLoadedMetadata={() => {
+              if (audioRef.current) {
+                setDuration(audioRef.current.duration);
+              }
+            }}
+            onEnded={() => {
+              setIsPlaying(false);
+              setCurrentTime(0);
+            }}
+            onError={(e) => {
+              console.error('Audio loading error:', e);
+              setIsPlaying(false);
+            }}
+          />
         </div>
       </div>
-
-      {/* Hidden audio element */}
-      <audio
-        ref={audioRef}
-        onTimeUpdate={() => {
-          if (audioRef.current && !isSeeking) {
-            setCurrentTime(audioRef.current.currentTime);
-          }
-        }}
-        onLoadedMetadata={() => {
-          if (audioRef.current) {
-            setDuration(audioRef.current.duration);
-          }
-        }}
-        onError={(e) => {
-          const error = audioRef.current?.error;
-          const errorMessage = error?.message || 'Unknown error';
-          
-          if (lastErrorRef.current !== errorMessage) {
-            lastErrorRef.current = errorMessage;
-            console.error('Audio error:', {
-              code: error?.code,
-              message: errorMessage,
-              src: audioRef.current?.src
-            });
-            setError(`Error loading audio file: ${errorMessage}`);
-          }
-        }}
-        crossOrigin="anonymous"
-        preload="metadata"
-      />
     </div>
   );
 };
