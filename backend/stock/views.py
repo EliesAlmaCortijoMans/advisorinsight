@@ -9,7 +9,6 @@ from urllib3.util import Retry
 from datetime import datetime, timedelta, date
 import logging
 import socket
-from urllib3.exceptions import NameResolutionError
 import time
 from django.core.cache import cache
 from math import isnan
