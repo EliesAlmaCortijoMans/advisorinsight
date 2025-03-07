@@ -8,4 +8,13 @@ env.bak/
 venv.bak/
 dump.rdb
 backend/advisors/
+backend/__pycache__/
+backend/**/*.pyc
+backend/**/*.pyo
+backend/**/*.log
+backend/**/*.tmp
+backend/**/.DS_Store
+backend/**/node_modules/
+backend/**/dist/
+backend/**/build/
 
