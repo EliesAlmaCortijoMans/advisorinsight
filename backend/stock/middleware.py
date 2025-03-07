@@ -9,7 +9,8 @@ class MediaCorsMiddleware:
         if request.path.startswith('/media/'):
             response["Access-Control-Allow-Origin"] = "*"
             response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
-            response["Access-Control-Allow-Headers"] = "Origin, Content-Type, Accept"
+            response["Access-Control-Allow-Headers"] = "Origin, Content-Type, Accept, Range"
             response["Access-Control-Allow-Credentials"] = "true"
+            response["Access-Control-Expose-Headers"] = "Content-Length, Content-Range"
         
         return response 

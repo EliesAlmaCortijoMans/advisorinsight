@@ -13,6 +13,10 @@ from openai import OpenAI
 import base64
 import tempfile
 from django.conf import settings
+import numpy as np
+from vosk import Model, KaldiRecognizer
+import wave
+from pathlib import Path
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -398,148 +402,146 @@ class StockConsumer(AsyncWebsocketConsumer):
 class TranscriptionConsumer(AsyncWebsocketConsumer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
-        self.temp_file = None
-        self.is_processing = False
-        self.file_counter = 0
-        self.accumulated_size = 0
-        self.max_file_size = 25 * 1024 * 1024  # 25MB max file size
-        self.last_transcription = None
+        self.recognizer = None
+        self.model = None
+        self.closed = False
+        self.buffer = []
+        self.buffer_size = 8192  # Buffer size in bytes
+        logger.info("TranscriptionConsumer initialized")
 
     async def connect(self):
-        await self.accept()
-        logger.info("Transcription client connected")
-        self.create_temp_file()
+        try:
+            logger.info(f"WebSocket connection attempt from {self.scope['client']}")
+            logger.info(f"Headers: {dict(self.scope['headers'])}")
+            
+            # Accept the connection first
+            await self.accept()
+            logger.info("WebSocket connection accepted")
 
-    def create_temp_file(self):
-        """Create a new temporary file with a unique name"""
-        self.file_counter += 1
-        self.temp_file = tempfile.NamedTemporaryFile(
-            suffix=f'_{self.file_counter}.webm',
-            delete=False,
-            mode='wb'
-        )
-        self.accumulated_size = 0
-        logger.info(f"Created new temp file: {self.temp_file.name}")
+            # Check if model directory exists
+            model_path = Path(__file__).resolve().parent.parent / 'data' / 'vosk-model-small-en-us'
+            if not model_path.exists():
+                error_msg = "Voice recognition model not found. Please download the model from https://alphacephei.com/vosk/models and extract vosk-model-small-en-us.zip to backend/data/"
+                logger.error(error_msg)
+                await self.send(json.dumps({
+                    "type": "error",
+                    "message": error_msg
+                }))
+                await self.close(code=4000)
+                return
+
+            # Check if model files exist
+            model_conf = model_path / 'conf' / 'mfcc.conf'
+            if not model_conf.exists():
+                error_msg = "Model files are missing or corrupted. Please ensure the model was extracted correctly."
+                logger.error(error_msg)
+                await self.send(json.dumps({
+                    "type": "error",
+                    "message": error_msg
+                }))
+                await self.close(code=4001)
+                return
+
+            # Initialize the model
+            try:
+                logger.info("Initializing Vosk model...")
+                self.model = Model(str(model_path))
+                self.recognizer = KaldiRecognizer(self.model, 16000)
+                logger.info("Vosk model initialized successfully")
+            except Exception as e:
+                error_msg = f"Failed to initialize voice recognition model: {str(e)}"
+                logger.error(error_msg)
+                await self.send(json.dumps({
+                    "type": "error",
+                    "message": error_msg
+                }))
+                await self.close(code=4002)
+                return
+            
+            # Send connection confirmation
+            await self.send(json.dumps({
+                "type": "connection_established",
+                "message": "Ready to receive audio"
+            }))
+            logger.info("Sent connection confirmation")
+            
+        except Exception as e:
+            error_msg = f"Connection error: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            if not self.closed:
+                await self.send(json.dumps({
+                    "type": "error",
+                    "message": error_msg
+                }))
+                await self.close(code=4003)
 
     async def disconnect(self, close_code):
-        logger.info(f"Transcription client disconnected with code: {close_code}")
-        if self.temp_file:
-            try:
-                name = self.temp_file.name
-                self.temp_file.close()
-                os.unlink(name)
-                logger.info(f"Cleaned up temp file: {name}")
-            except Exception as e:
-                logger.error(f"Error cleaning up temp file: {e}")
-
-    async def receive(self, text_data):
+        logger.info(f"WebSocket disconnected with code: {close_code}")
+        self.closed = True
         try:
-            data = json.loads(text_data)
-            if data['type'] == 'audio_chunk':
-                # Decode base64 audio chunk
-                audio_chunk = base64.b64decode(data['chunk'])
-                chunk_size = len(audio_chunk)
-
-                # Check if adding this chunk would exceed max file size
-                if self.accumulated_size + chunk_size > self.max_file_size:
-                    logger.info("File size limit reached, processing current file")
-                    await self.process_audio()
-                    self.create_temp_file()
-
-                # Write chunk to file
-                self.temp_file.write(audio_chunk)
-                self.temp_file.flush()
-                os.fsync(self.temp_file.fileno())
-                self.accumulated_size += chunk_size
-
-                # Process the audio if we have enough data and not already processing
-                if self.accumulated_size >= 32768 and not self.is_processing:  # 32KB minimum
-                    self.is_processing = True
-                    await self.process_audio()
-                    self.is_processing = False
-
+            self.recognizer = None
+            self.model = None
+            self.buffer = []
         except Exception as e:
-            logger.error(f"Error processing audio chunk: {str(e)}")
-            await self.send(text_data=json.dumps({
-                'type': 'error',
-                'message': str(e)
-            }))
+            logger.error(f"Error in disconnect: {str(e)}")
 
-    async def process_audio(self):
-        current_file = self.temp_file
+    async def receive(self, bytes_data=None, text_data=None):
         try:
-            # Create a new temp file for the next chunk
-            current_file_name = current_file.name
-            self.create_temp_file()
-
-            # Ensure current file is properly written and closed
-            current_file.flush()
-            os.fsync(current_file.fileno())
-            current_file.close()
-
-            # Check if file has content
-            if os.path.getsize(current_file_name) == 0:
-                logger.warning("Empty audio file, skipping transcription")
-                os.unlink(current_file_name)
+            if text_data:
+                logger.info(f"Received text data: {text_data}")
                 return
 
-            # Verify file format
-            try:
-                with open(current_file_name, 'rb') as f:
-                    # Check WebM header magic number
-                    header = f.read(4)
-                    if header != b'\x1a\x45\xdf\xa3':
-                        logger.error("Invalid WebM file format")
-                        raise ValueError("Invalid WebM file format")
-            except Exception as e:
-                logger.error(f"File format verification failed: {e}")
-                os.unlink(current_file_name)
-                await self.send(text_data=json.dumps({
-                    'type': 'error',
-                    'message': f"Invalid file format: {str(e)}"
+            if not bytes_data:
+                logger.warning("Received empty bytes data")
+                return
+
+            if not self.recognizer:
+                logger.error("Recognizer not initialized")
+                await self.send(json.dumps({
+                    "type": "error",
+                    "message": "Voice recognition not initialized"
                 }))
+                await self.close(code=4004)
                 return
 
-            # Transcribe the audio
-            with open(current_file_name, 'rb') as audio_file:
-                try:
-                    response = self.client.audio.transcriptions.create(
-                        file=audio_file,
-                        model="whisper-1",
-                        response_format="json",
-                        language="en"
-                    )
-
-                    if response.text.strip():
-                        transcribed_text = response.text.strip()
-                        
-                        # Only send if text is different from last transcription
-                        if transcribed_text != self.last_transcription:
-                            self.last_transcription = transcribed_text
-                            await self.send(text_data=json.dumps({
-                                'type': 'transcription',
-                                'text': transcribed_text
-                            }))
-                            logger.info(f"Successfully transcribed audio: {transcribed_text}")
-
-                except Exception as e:
-                    logger.error(f"Transcription error: {str(e)}")
-                    await self.send(text_data=json.dumps({
-                        'type': 'error',
-                        'message': f"Error code: {getattr(e, 'status', 400)} - {str(e)}"
+            logger.debug(f"Received audio data of size: {len(bytes_data)} bytes")
+            
+            # Convert bytes to numpy array
+            audio_data = np.frombuffer(bytes_data, dtype=np.float32)
+            logger.debug(f"Audio data range: min={np.min(audio_data)}, max={np.max(audio_data)}")
+            
+            # Ensure audio is properly scaled to [-1, 1]
+            if np.max(np.abs(audio_data)) > 1:
+                audio_data = audio_data / 32768.0
+            
+            # Convert float32 [-1.0, 1.0] to int16 [-32768, 32767]
+            audio_data = (audio_data * 32768).astype(np.int16)
+            logger.debug(f"Converted int16 range: min={np.min(audio_data)}, max={np.max(audio_data)}")
+            
+            # Process the audio data
+            if self.recognizer.AcceptWaveform(audio_data.tobytes()):
+                result = json.loads(self.recognizer.Result())
+                logger.info(f"Full transcription result: {result}")
+                if result.get("text"):
+                    logger.info(f"Sending transcription: {result['text']}")
+                    await self.send(json.dumps({
+                        "type": "transcription",
+                        "text": result["text"]
                     }))
-
-            # Clean up the processed file
-            try:
-                os.unlink(current_file_name)
-                logger.info(f"Deleted processed file: {current_file_name}")
-            except Exception as e:
-                logger.error(f"Error deleting processed file: {e}")
-
+            else:
+                partial = json.loads(self.recognizer.PartialResult())
+                logger.debug(f"Partial result: {partial}")
+                if partial.get("partial"):
+                    logger.info(f"Sending partial transcription: {partial['partial']}")
+                    await self.send(json.dumps({
+                        "type": "partial",
+                        "text": partial["partial"]
+                    }))
+            
         except Exception as e:
-            logger.error(f"Error transcribing audio: {str(e)}")
-            await self.send(text_data=json.dumps({
-                'type': 'error',
-                'message': str(e)
-            })) 
+            logger.error(f"Error in receive: {str(e)}", exc_info=True)
+            await self.send(json.dumps({
+                "type": "error",
+                "message": str(e)
+            }))
+            await self.close(code=4005) 

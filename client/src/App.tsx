@@ -19,6 +19,7 @@ import { fetchEarningsSchedule } from './services/earningsService';
 import MainHeader from './components/header/MainHeader';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import CallSummaryPanel from './components/CallSummaryPanel';
+import LiveCaption from './components/LiveCaption';
 
 type PriceUpdateCallback = (data: any) => void;
 
@@ -235,58 +236,134 @@ const AppContent: React.FC = () => {
 
   // Add this function to handle live audio playback
   const handleLiveAudioPlayback = async () => {
-    if (!audioRef.current || !selectedCompany) return;
-
     try {
+      if (!audioRef.current || !selectedCompany) {
+        console.error('Audio reference or selected company not available');
+        return;
+      }
+
       if (isPlayingLiveAudio) {
+        console.log('Stopping audio playback');
         audioRef.current.pause();
         setIsPlayingLiveAudio(false);
-      } else {
-        setIsConnectingAudio(true);
-        // Get the latest audio file for the selected company
-        console.log('Fetching audio history for company:', selectedCompany.symbol);
-        const audioHistory = await fetchAudioHistory(selectedCompany.symbol);
-        console.log('Audio history response:', audioHistory);
-        
-        if (!audioHistory || !Array.isArray(audioHistory) || audioHistory.length === 0) {
-          console.error('No audio files available:', audioHistory);
-          setIsConnectingAudio(false);
-          return;
-        }
+        return;
+      }
 
-        // Get the most recent audio file
-        const latestAudio = audioHistory[0];
-        console.log('Latest audio file:', latestAudio);
-        
-        if (!latestAudio.audioAvailable) {
-          console.error('Audio file not available');
-          setIsConnectingAudio(false);
-          return;
+      console.log('Fetching audio history for:', selectedCompany.symbol);
+      const response = await fetchAudioHistory(selectedCompany.symbol);
+      console.log('Audio history response:', response);
+
+      if (!response || !Array.isArray(response) || response.length === 0) {
+        console.error('No audio history available');
+        return;
+      }
+
+      const latestAudio = response[0];
+      console.log('Latest audio file:', latestAudio);
+
+      if (!latestAudio.audioAvailable) {
+        console.error('Audio file not available');
+        return;
+      }
+
+      // Construct the full audio URL
+      const audioUrl = `${window.location.protocol}//${window.location.hostname}:8000${latestAudio.audioUrl}`;
+      console.log('Playing audio from URL:', audioUrl);
+
+      // Reset audio element
+      if (audioRef.current.src) {
+        audioRef.current.src = '';
+        audioRef.current.load();
+      }
+
+      // Configure audio element
+      audioRef.current.crossOrigin = 'anonymous';  // Important for CORS
+      audioRef.current.preload = 'auto';
+      audioRef.current.src = audioUrl;
+      
+      // Add event listeners for better error handling
+      audioRef.current.onerror = (e) => {
+        console.error('Error loading audio:', e);
+        const error = audioRef.current?.error;
+        if (error) {
+          console.error('Detailed error:', {
+            code: error.code,
+            message: error.message
+          });
         }
-        
-        if (!latestAudio.audioUrl) {
-          console.error('Audio URL not found in response');
-          setIsConnectingAudio(false);
-          return;
-        }
-        
-        // Format the URL properly - audioUrl is already in the correct format from the backend
-        const audioUrl = `http://localhost:8000${latestAudio.audioUrl}`;
-        console.log('Playing audio from:', audioUrl);
-        
-        // Set the source and play
-        audioRef.current.src = audioUrl;
-        await audioRef.current.load(); // Load the audio first
-        await audioRef.current.play();
+      };
+      
+      audioRef.current.onloadeddata = () => {
+        console.log('Audio loaded successfully');
+        console.log('Audio duration:', audioRef.current?.duration);
+        console.log('Audio ready state:', audioRef.current?.readyState);
+      };
+      
+      audioRef.current.onplay = () => {
+        console.log('Audio started playing');
         setIsPlayingLiveAudio(true);
-        setIsConnectingAudio(false);
+      };
+
+      // Load and play
+      await audioRef.current.load();
+      console.log('Audio loaded, attempting to play...');
+      
+      const playPromise = audioRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            console.log('Audio playback started successfully');
+          })
+          .catch(error => {
+            console.error('Error playing audio:', error);
+            setIsPlayingLiveAudio(false);
+          });
       }
     } catch (error) {
-      console.error('Error playing audio:', error);
+      console.error('Error in handleLiveAudioPlayback:', error);
       setIsPlayingLiveAudio(false);
-      setIsConnectingAudio(false);
     }
   };
+
+  // Add event listeners to audio element
+  useEffect(() => {
+    if (!audioRef.current) return;
+
+    const audio = audioRef.current;
+    
+    const handlePlay = () => {
+      console.log('Audio started playing');
+      setIsPlayingLiveAudio(true);
+    };
+
+    const handlePause = () => {
+      console.log('Audio paused');
+      setIsPlayingLiveAudio(false);
+    };
+
+    const handleEnded = () => {
+      console.log('Audio playback ended');
+      setIsPlayingLiveAudio(false);
+    };
+
+    const handleError = (e: any) => {
+      console.error('Audio error:', e);
+      setIsPlayingLiveAudio(false);
+      setIsConnectingAudio(false);
+    };
+
+    audio.addEventListener('play', handlePlay);
+    audio.addEventListener('pause', handlePause);
+    audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('error', handleError);
+
+    return () => {
+      audio.removeEventListener('play', handlePlay);
+      audio.removeEventListener('pause', handlePause);
+      audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('error', handleError);
+    };
+  }, []);
 
   if (error) {
     return <div className="text-center p-4 text-red-500">{error}</div>;
@@ -373,7 +450,7 @@ const AppContent: React.FC = () => {
                                 <h3 className={`text-xl font-semibold ${
                                   isDarkMode ? 'text-gray-100' : 'text-gray-900'
                                 }`}>
-                                  Call Transcription
+                                  Earnings Calls
                                 </h3>
                                 {isCallOngoing && (
                                   <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center ${
@@ -417,24 +494,6 @@ const AppContent: React.FC = () => {
                                       </>
                                     )}
                                   </button>
-                                  <button
-                                    onClick={() => setIsLiveCaptionOn(!isLiveCaptionOn)}
-                                    className={`text-sm px-3 py-1.5 rounded-full transition-all duration-200 flex items-center ${
-                                      isLiveCaptionOn
-                                        ? (isDarkMode
-                                            ? 'bg-green-500/20 text-green-300 shadow-inner shadow-green-900/20'
-                                            : 'bg-green-100 text-green-700 shadow-inner shadow-green-100')
-                                        : (isDarkMode
-                                            ? 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:shadow-lg hover:shadow-gray-900/20'
-                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-lg hover:shadow-gray-200/50')
-                                    }`}
-                                  >
-                                    {isLiveCaptionOn 
-                                      ? <ToggleRight className="w-4 h-4 mr-1 text-green-500" />
-                                      : <ToggleLeft className="w-4 h-4 mr-1" />
-                                    }
-                                    Live Caption
-                                  </button>
                                 </div>
                               )}
                             </div>
@@ -472,45 +531,76 @@ const AppContent: React.FC = () => {
                             ? 'bg-gray-800/30 border-gray-700' 
                             : 'bg-gray-50/80 border-gray-200'
                         } p-2`}>
-                          {isCallOngoing && isLiveCaptionOn ? (
-                            <div className="animate-pulse flex flex-col items-center justify-center h-[120px] gap-3">
-                              <Radio className="w-8 h-8 text-red-500" />
-                              <span className={`text-lg font-medium ${
-                                isDarkMode ? 'text-gray-300' : 'text-gray-600'
-                              }`}>
-                                Listening for live captions...
-                              </span>
-                              <span className={`text-sm ${
-                                isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                              }`}>
-                                Transcription will appear here in real-time
-                              </span>
-                            </div>
-                          ) : selectedTranscript?.transcript?.slice(0, 3).map((item: any, index: number) => (
-                            <div 
-                              key={index} 
-                              className={`animate-slide-in p-3 rounded-lg ${
+                          <h4 className={`font-medium mb-4 ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+                            {isCallOngoing && isPlayingLiveAudio ? 'Live Transcription' : 'Past Earnings Call\'s Summary'}
+                          </h4>
+                          {isCallOngoing ? (
+                            isPlayingLiveAudio ? (
+                              <LiveCaption
+                                audioRef={audioRef}
+                                isEnabled={true}
+                                isDarkMode={isDarkMode}
+                              />
+                            ) : (
+                              <div className={`p-4 rounded-lg ${
                                 isDarkMode 
-                                  ? 'bg-gray-800/50 hover:bg-gray-800/70' 
-                                  : 'bg-white hover:bg-white/80'
-                              } shadow-sm transition-all duration-200`}
-                              style={{ animationDelay: `${index * 100}ms` }}
-                            >
-                              <p className={`font-medium flex items-center gap-2 ${
-                                isDarkMode ? 'text-gray-200' : 'text-gray-900'
-                              }`}>
-                                <span className={`inline-block w-2 h-2 rounded-full ${
-                                  isDarkMode ? 'bg-indigo-400' : 'bg-indigo-600'
-                                }`} />
-                                {item.name}
-                              </p>
-                              <p className={`mt-2 leading-relaxed ${
+                                  ? 'bg-gray-800/50' 
+                                  : 'bg-white'
+                              } shadow-sm`}>
+                                <p className={`leading-relaxed ${
+                                  isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                                }`}>
+                                  In the latest earnings call, the company reported strong financial performance with revenue growth of 15% year-over-year. Key highlights include expansion into new markets, successful product launches, and improved operational efficiency. The management team expressed confidence in the company's strategic initiatives and provided positive guidance for the upcoming quarters. They emphasized continued investment in R&D and digital transformation efforts. The call also addressed questions about market competition, supply chain optimization, and sustainability goals.
+                                </p>
+                                <div className="mt-4 space-y-2">
+                                  <p className={`text-sm ${
+                                    isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                                  }`}>
+                                    <strong>Date:</strong> {selectedTranscript?.date || 'Recent'}
+                                  </p>
+                                  <p className={`text-sm ${
+                                    isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                                  }`}>
+                                    <strong>Duration:</strong> 60 minutes
+                                  </p>
+                                </div>
+                                <div className="mt-6 flex justify-center">
+                                  <div className="animate-pulse flex flex-col items-center gap-2 text-center">
+                                    <Radio className="w-6 h-6 text-red-500" />
+                                    <span className={`text-sm ${
+                                      isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                                    }`}>
+                                      Click "Listen Live" to start real-time transcription
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          ) : (
+                            <div className={`p-4 rounded-lg ${
+                              isDarkMode 
+                                ? 'bg-gray-800/50' 
+                                : 'bg-white'
+                            } shadow-sm`}>
+                              <p className={`leading-relaxed ${
                                 isDarkMode ? 'text-gray-300' : 'text-gray-600'
                               }`}>
-                                {item.speech}
+                                In the latest earnings call, the company reported strong financial performance with revenue growth of 15% year-over-year. Key highlights include expansion into new markets, successful product launches, and improved operational efficiency. The management team expressed confidence in the company's strategic initiatives and provided positive guidance for the upcoming quarters. They emphasized continued investment in R&D and digital transformation efforts. The call also addressed questions about market competition, supply chain optimization, and sustainability goals.
                               </p>
+                              <div className="mt-4 space-y-2">
+                                <p className={`text-sm ${
+                                  isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                                }`}>
+                                  <strong>Date:</strong> {selectedTranscript?.date || 'Recent'}
+                                </p>
+                                <p className={`text-sm ${
+                                  isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                                }`}>
+                                  <strong>Duration:</strong> 60 minutes
+                                </p>
+                              </div>
                             </div>
-                          ))}
+                          )}
                         </div>
                       </div>
                     </div>
@@ -604,9 +694,18 @@ const AppContent: React.FC = () => {
       {/* Add audio element */}
       <audio
         ref={audioRef}
+        crossOrigin="anonymous"
+        preload="auto"
         onEnded={() => setIsPlayingLiveAudio(false)}
         onError={(e) => {
           console.error('Audio error:', e);
+          const error = (e.target as HTMLAudioElement).error;
+          if (error) {
+            console.error('Detailed error:', {
+              code: error.code,
+              message: error.message
+            });
+          }
           setIsPlayingLiveAudio(false);
         }}
       />

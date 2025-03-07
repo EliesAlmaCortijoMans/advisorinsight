@@ -26,7 +26,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ onClose }) => {
             <h3 className={`text-xl font-semibold ${
               isDarkMode ? 'text-gray-100' : 'text-gray-900'
             }`}>
-              Call Summary
+              Key Highlights
             </h3>
             <button
               onClick={onClose}

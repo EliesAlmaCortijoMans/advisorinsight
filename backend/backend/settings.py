@@ -46,6 +46,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
+    'stock.middleware.MediaCorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -129,12 +130,31 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Add ASGI application
-ASGI_APPLICATION = 'backend.routing.application'
+ASGI_APPLICATION = 'backend.asgi.application'
 
 # Add these settings
 CORS_ALLOW_ALL_ORIGINS = True  # For development only
 CORS_ALLOW_CREDENTIALS = True
-CORS_ORIGIN_ALLOW_ALL = True  # For development only
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+]
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^http://localhost:[0-9]+$",
+]
+
+# Allow all hosts in development
+ALLOWED_HOSTS = ['*']
+
+# WebSocket settings
+ASGI_APPLICATION = 'backend.asgi.application'
+
+# Add WebSocket to allowed CORS methods
+CORS_ALLOW_METHODS = [
+    'GET',
+    'POST',
+    'OPTIONS',
+    'WEBSOCKET',
+]
 
 # Channel layer configuration
 CHANNEL_LAYERS = {

@@ -88,8 +88,19 @@ def get_transcript(request, company_symbol, transcript_id):
 
 def get_audio_history(request, symbol):
     try:
+        print(f"Fetching audio history for symbol: {symbol}")
         transcript_dir = Path(__file__).resolve().parent.parent / 'data' / symbol / 'transcripts'
         audio_dir = Path(__file__).resolve().parent.parent / 'data' / symbol / 'audios'
+        
+        print(f"Checking directories - Transcript dir: {transcript_dir}, Audio dir: {audio_dir}")
+        
+        # Check if directories exist
+        if not transcript_dir.exists():
+            print(f"Transcript directory does not exist for {symbol}")
+            return JsonResponse({
+                'success': False,
+                'error': f'No transcripts found for {symbol}'
+            }, status=404)
         
         # Create audio directory if it doesn't exist
         audio_dir.mkdir(parents=True, exist_ok=True)
@@ -97,30 +108,37 @@ def get_audio_history(request, symbol):
         audio_history = []
         
         for transcript_file in transcript_dir.glob('*.json'):
+            print(f"Processing transcript file: {transcript_file}")
             with open(transcript_file, 'r') as f:
                 transcript_data = json.load(f)
             
             audio_file_name = f"{transcript_file.stem}.mp3"
             audio_file_path = audio_dir / audio_file_name
             
-            # Use relative URL for audio files instead of hardcoded localhost
+            # Use relative URL for audio files
             audio_url = f'/media/{symbol}/audios/{audio_file_name}'
+            
+            print(f"Checking audio file: {audio_file_path}")
+            audio_exists = audio_file_path.exists()
+            print(f"Audio file exists: {audio_exists}")
             
             audio_history.append({
                 'id': transcript_file.stem,
                 'title': transcript_data.get('title', 'Earnings Call'),
                 'time': transcript_data.get('time', ''),
                 'audioUrl': audio_url,
-                'audioAvailable': audio_file_path.exists()
+                'audioAvailable': audio_exists
             })
         
         if not audio_history:
+            print(f"No audio history found for {symbol}")
             return JsonResponse({
                 'success': False,
                 'error': f'No transcripts found for {symbol}'
             }, status=404)
         
         audio_history.sort(key=lambda x: x.get('time', ''), reverse=True)
+        print(f"Returning audio history for {symbol}: {audio_history}")
         
         return JsonResponse({
             'success': True,

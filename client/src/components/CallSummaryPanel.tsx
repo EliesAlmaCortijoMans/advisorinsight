@@ -73,17 +73,9 @@ const CallSummaryPanel: React.FC<CallSummaryPanelProps> = ({ call, onViewFullSum
                 <h3 className={`text-xl font-semibold ${
                   isDarkMode ? 'text-gray-100' : 'text-gray-900'
                 }`}>
-                  Call Summary
+                  Key Highlights
                 </h3>
-                <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  call.status === 'upcoming'
-                    ? isDarkMode ? 'bg-blue-900/50 text-blue-200' : 'bg-blue-100 text-blue-800'
-                    : call.status === 'ongoing'
-                      ? isDarkMode ? 'bg-green-900/50 text-green-200' : 'bg-green-100 text-green-800'
-                      : isDarkMode ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-800'
-                }`}>
-                  {call.status.charAt(0).toUpperCase() + call.status.slice(1)}
-                </div>
+             
               </div>
               <button
                 onClick={onViewFullSummary}
@@ -94,7 +86,7 @@ const CallSummaryPanel: React.FC<CallSummaryPanelProps> = ({ call, onViewFullSum
                 }`}
               >
                 <FileText className="w-4 h-4 mr-1" />
-                View Full Summary
+                View Full Highlights
               </button>
             </div>
             <div className={`flex items-center ${
