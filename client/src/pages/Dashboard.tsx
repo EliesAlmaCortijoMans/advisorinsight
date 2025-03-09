@@ -364,7 +364,7 @@ const Dashboard: React.FC = () => {
   const renderAnalysisContent = () => {
     switch (activeTab) {
       case 'sentiment':
-        return <SentimentAnalysis />;
+        return <SentimentAnalysis symbol={selectedCompany?.symbol} />;
       case 'financial':
         return <FinancialMetrics />;
       case 'investor':

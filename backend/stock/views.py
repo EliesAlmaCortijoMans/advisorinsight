@@ -18,6 +18,7 @@ from rest_framework.response import Response
 from openai import OpenAI
 import finnhub
 from dotenv import load_dotenv
+import random
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -513,3 +514,104 @@ def company_news(request):
     except Exception as e:
         logger.error(f"Error fetching news for {symbol}: {str(e)}", exc_info=True)
         return JsonResponse({'error': f'Failed to fetch news: {str(e)}'}, status=500)
+
+@api_view(['GET'])
+def stock_social_sentiment(request):
+    symbol = request.GET.get('symbol')
+    if not symbol:
+        return JsonResponse({'error': 'Symbol is required'}, status=400)
+
+    try:
+        logger.info(f"Fetching social sentiment for symbol: {symbol}")
+        
+        if not settings.FINNHUB_API_KEY:
+            logger.error("FINNHUB_API_KEY not found in settings")
+            return JsonResponse({'error': 'Finnhub API key not configured'}, status=500)
+            
+        logger.info(f"Using Finnhub API key: {settings.FINNHUB_API_KEY[:10]}...")
+        
+        # Get sentiment data from Finnhub
+        sentiment = finnhub_client.stock_social_sentiment(symbol)
+        logger.info(f"Raw Finnhub response: {sentiment}")
+        
+        # Process and format the data
+        reddit_data = sentiment.get('reddit', [])
+        twitter_data = sentiment.get('twitter', [])
+        
+        logger.info(f"Reddit data count: {len(reddit_data)}")
+        logger.info(f"Twitter data count: {len(twitter_data)}")
+        logger.info(f"Sample Reddit mention: {reddit_data[0] if reddit_data else 'No Reddit data'}")
+        logger.info(f"Sample Twitter mention: {twitter_data[0] if twitter_data else 'No Twitter data'}")
+        
+        # Combine and sort data by time
+        all_data = []
+        total_mentions = 0
+        for item in reddit_data + twitter_data:
+            mention_count = item.get('mention', 0)
+            total_mentions += mention_count
+            logger.info(f"Processing item with mentions: {mention_count}")
+            
+            positive_score = item.get('positiveScore', 0)
+            negative_score = abs(item.get('negativeScore', 0))
+            total_score = positive_score + negative_score
+            
+            # Calculate normalized sentiment score between -1 and 1
+            sentiment_score = 0
+            if total_score > 0:
+                sentiment_score = (positive_score - negative_score) / total_score
+            
+            all_data.append({
+                'atTime': item.get('atTime'),
+                'mention': item.get('mention', 0),
+                'positiveScore': positive_score,
+                'negativeScore': negative_score,
+                'positiveMention': item.get('positiveMention', 0),
+                'negativeMention': item.get('negativeMention', 0),
+                'score': sentiment_score
+            })
+        
+        # Sort by time
+        all_data.sort(key=lambda x: x['atTime'], reverse=True)
+        logger.info(f"Processed data count: {len(all_data)}")
+        
+        if not all_data:
+            logger.warning(f"No sentiment data available for {symbol}, generating mock data")
+            # Generate mock data for the last 24 hours
+            now = datetime.now()
+            mock_data = []
+            base_sentiment = random.uniform(0.3, 0.7)  # Random base sentiment between 0.3 and 0.7
+            
+            for i in range(24):
+                time_point = now - timedelta(hours=i)
+                sentiment_variation = random.uniform(-0.1, 0.1)  # Add some random variation
+                sentiment_score = max(-1, min(1, base_sentiment + sentiment_variation))  # Keep between -1 and 1
+                
+                mock_data.append({
+                    'atTime': time_point.isoformat(),
+                    'mention': random.randint(50, 200),  # Random number of mentions
+                    'positiveScore': max(0, sentiment_score),
+                    'negativeScore': abs(min(0, sentiment_score)),
+                    'positiveMention': random.randint(20, 100),
+                    'negativeMention': random.randint(20, 100),
+                    'score': sentiment_score
+                })
+            
+            response = JsonResponse({
+                'data': mock_data,
+                'symbol': symbol,
+                'is_mock': True  # Flag to indicate this is mock data
+            })
+        else:
+            response = JsonResponse({
+                'data': all_data[:24],  # Last 24 data points
+                'symbol': symbol,
+                'is_mock': False
+            })
+            
+        response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+        response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+    except Exception as e:
+        logger.error(f"Error fetching social sentiment for {symbol}: {str(e)}", exc_info=True)
+        return JsonResponse({'error': f'Failed to fetch social sentiment: {str(e)}'}, status=500)
