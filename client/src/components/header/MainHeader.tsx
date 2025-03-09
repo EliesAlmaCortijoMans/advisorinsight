@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { 
   Home, 
-  PhoneCall, 
   LineChart, 
   Brain, 
   Settings, 
@@ -16,36 +16,45 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 
-interface NavItem {
-  id: string;
-  label: string;
-  icon: React.ReactNode;
-  isOptional?: boolean;
-}
-
 interface MainHeaderProps {
   isMarketOpen: boolean;
   nextMarketOpen: number | null;
 }
 
+interface NavItem {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  path?: string;
+  isOptional?: boolean;
+}
+
 const MainHeader: React.FC<MainHeaderProps> = ({ isMarketOpen, nextMarketOpen }) => {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const navigate = useNavigate();
+  const location = useLocation();
   const { isDarkMode, toggleTheme } = useTheme();
 
   const mainNavItems: NavItem[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: <Home className="w-4 h-4" /> },
-    { id: 'earnings', label: 'Earnings Calls', icon: <PhoneCall className="w-4 h-4" /> },
-    { id: 'market', label: 'Market Insights', icon: <LineChart className="w-4 h-4" /> },
-    { id: 'analysis', label: 'AI Analysis', icon: <Brain className="w-4 h-4" /> },
-    { id: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" /> },
-    { id: 'help', label: 'Help', icon: <HelpCircle className="w-4 h-4" /> },
+    { id: 'dashboard', label: 'Dashboard', icon: <Home className="w-4 h-4" />, path: '/dashboard' },
+    { id: 'market', label: 'Market Insights', icon: <LineChart className="w-4 h-4" />, path: '/market' },
+    { id: 'analysis', label: 'AI Analysis', icon: <Brain className="w-4 h-4" />, path: '/analysis' },
+    { id: 'settings', label: 'Settings', icon: <Settings className="w-4 h-4" />, path: '/settings' },
+    { id: 'help', label: 'Help', icon: <HelpCircle className="w-4 h-4" />, path: '/help' },
   ];
 
   const optionalNavItems: NavItem[] = [
-    { id: 'watchlist', label: 'Watchlist', icon: <List className="w-4 h-4" />, isOptional: true },
-    { id: 'compare', label: 'Compare', icon: <GitCompare className="w-4 h-4" />, isOptional: true },
-    { id: 'notifications', label: 'Notifications', icon: <Bell className="w-4 h-4" />, isOptional: true },
+    { id: 'watchlist', label: 'Watchlist', icon: <List className="w-4 h-4" />, path: '/watchlist', isOptional: true },
+    { id: 'compare', label: 'Compare', icon: <GitCompare className="w-4 h-4" />, path: '/compare', isOptional: true },
+    { id: 'notifications', label: 'Notifications', icon: <Bell className="w-4 h-4" />, path: '/notifications', isOptional: true },
   ];
+
+  const handleNavigation = (path: string) => {
+    navigate(path);
+  };
+
+  const isActive = (path: string) => {
+    return location.pathname === path;
+  };
 
   return (
     <header className={`${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'} border-b transition-colors duration-200 ease-in-out sticky top-0 z-50 backdrop-blur-sm bg-opacity-90`}>
@@ -89,9 +98,9 @@ const MainHeader: React.FC<MainHeaderProps> = ({ isMarketOpen, nextMarketOpen })
             {mainNavItems.map((item) => (
               <button
                 key={item.id}
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => item.path && handleNavigation(item.path)}
                 className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  activeTab === item.id
+                  isActive(item.path || '')
                     ? isDarkMode 
                       ? 'bg-indigo-900/50 text-indigo-300 shadow-lg shadow-indigo-900/20'
                       : 'bg-indigo-100 text-indigo-700 shadow-md'
@@ -101,7 +110,7 @@ const MainHeader: React.FC<MainHeaderProps> = ({ isMarketOpen, nextMarketOpen })
                 }`}
               >
                 {item.icon}
-                <span className="ml-2 hidden md:inline">{item.label}</span>
+                <span className="ml-2">{item.label}</span>
               </button>
             ))}
           </nav>
@@ -112,9 +121,9 @@ const MainHeader: React.FC<MainHeaderProps> = ({ isMarketOpen, nextMarketOpen })
           {optionalNavItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => item.path && handleNavigation(item.path)}
               className={`flex items-center p-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                activeTab === item.id
+                isActive(item.path || '')
                   ? isDarkMode 
                     ? 'bg-indigo-900/50 text-indigo-300 shadow-lg shadow-indigo-900/20'
                     : 'bg-indigo-100 text-indigo-700 shadow-md'
@@ -160,4 +169,4 @@ const MainHeader: React.FC<MainHeaderProps> = ({ isMarketOpen, nextMarketOpen })
   );
 };
 
-export default MainHeader; 
+export default MainHeader;

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useAudioContext } from '../hooks/useAudioContext';
 
 // Add TypeScript declarations for the Web Speech API
@@ -37,7 +37,23 @@ const LiveCaption: React.FC<LiveCaptionProps> = ({ audioRef, isEnabled, isDarkMo
   const reconnectAttemptsRef = useRef(0);
   const { sourceNode, audioContext } = useAudioContext(audioRef.current);
 
-  const connectWebSocket = () => {
+  const disconnectWebSocket = useCallback(() => {
+    console.log('Disconnecting WebSocket...');
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    if (workletNodeRef.current) {
+      workletNodeRef.current.disconnect();
+      workletNodeRef.current = null;
+    }
+    setIsConnected(false);
+    setIsProcessing(false);
+    setError(null);
+    reconnectAttemptsRef.current = 0;
+  }, []);
+
+  const connectWebSocket = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       console.log('WebSocket already connected');
       return;
@@ -95,7 +111,7 @@ const LiveCaption: React.FC<LiveCaptionProps> = ({ audioRef, isEnabled, isDarkMo
         setIsConnected(false);
         wsRef.current = null;
 
-        // Attempt to reconnect if enabled and haven't exceeded max attempts
+        // Only attempt to reconnect if still enabled
         if (isEnabled && reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
           console.log(`Attempting to reconnect (${reconnectAttemptsRef.current + 1}/${MAX_RECONNECT_ATTEMPTS})...`);
           reconnectAttemptsRef.current++;
@@ -113,11 +129,11 @@ const LiveCaption: React.FC<LiveCaptionProps> = ({ audioRef, isEnabled, isDarkMo
       console.error('Error creating WebSocket:', error);
       setError('Failed to create WebSocket connection');
     }
-  };
+  }, [isEnabled]);
 
   // Handle WebSocket connection and audio processing
   useEffect(() => {
-    if (!isEnabled || !sourceNode || !audioContext || !audioRef.current) {
+    if (!isEnabled) {
       // Cleanup when disabled
       if (workletNodeRef.current) {
         workletNodeRef.current.disconnect();
@@ -134,11 +150,32 @@ const LiveCaption: React.FC<LiveCaptionProps> = ({ audioRef, isEnabled, isDarkMo
     }
 
     let isSetupComplete = false;
+    let connectionTimeout: number;
 
     const setupAudioProcessing = async () => {
       try {
         // First establish WebSocket connection
+        console.log('Establishing WebSocket connection...');
         connectWebSocket();
+
+        // Set a timeout for the initial connection
+        connectionTimeout = window.setTimeout(() => {
+          if (!isConnected) {
+            console.error('Initial WebSocket connection timeout');
+            setError('Connection timeout - retrying...');
+            if (wsRef.current) {
+              wsRef.current.close();
+              wsRef.current = null;
+            }
+            connectWebSocket();
+          }
+        }, 3000);
+
+        // Only proceed with audio setup if we have all required components
+        if (!audioRef.current || !audioContext || !sourceNode) {
+          console.log('Waiting for audio components...');
+          return;
+        }
 
         // Load and register the audio worklet
         console.log('Loading audio worklet...');
@@ -173,6 +210,9 @@ const LiveCaption: React.FC<LiveCaptionProps> = ({ audioRef, isEnabled, isDarkMo
 
     // Cleanup function
     return () => {
+      if (connectionTimeout) {
+        clearTimeout(connectionTimeout);
+      }
       if (workletNodeRef.current) {
         workletNodeRef.current.disconnect();
         workletNodeRef.current = null;
@@ -187,7 +227,7 @@ const LiveCaption: React.FC<LiveCaptionProps> = ({ audioRef, isEnabled, isDarkMo
       }
       setError(null);
     };
-  }, [isEnabled, sourceNode, audioContext]);
+  }, [isEnabled, sourceNode, audioContext, isConnected]);
 
   // Reset transcription text when disabled
   useEffect(() => {
@@ -197,6 +237,18 @@ const LiveCaption: React.FC<LiveCaptionProps> = ({ audioRef, isEnabled, isDarkMo
       setError(null);
     }
   }, [isEnabled]);
+
+  // Add a reconnection effect
+  useEffect(() => {
+    if (isEnabled && !isConnected && !wsRef.current) {
+      const reconnectTimer = setTimeout(() => {
+        console.log('Attempting to reconnect WebSocket...');
+        connectWebSocket();
+      }, RECONNECT_DELAY);
+
+      return () => clearTimeout(reconnectTimer);
+    }
+  }, [isEnabled, isConnected]);
 
   if (!isEnabled) return null;
 
