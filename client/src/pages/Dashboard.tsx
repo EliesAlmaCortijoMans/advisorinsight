@@ -13,7 +13,7 @@ import { Headphones, FileText, Radio, ToggleLeft, ToggleRight, Play, Pause } fro
 import TranscriptModal from '../components/modals/TranscriptModal';
 import SummaryModal from '../components/modals/SummaryModal';
 import { StockWebSocket } from '../services/stockWebSocket';
-import { fetchCompanyTranscripts, prefetchAllTranscripts } from '../services/transcriptService';
+import { fetchCompanyTranscripts, prefetchAllTranscripts, fetchEarningsCallSummary } from '../services/transcriptService';
 import { fetchAudioHistory } from '../services/audioService';
 import { fetchEarningsSchedule } from '../services/earningsService';
 import { useTheme } from '../contexts/ThemeContext';
@@ -48,6 +48,9 @@ const Dashboard: React.FC = () => {
   const [isPlayingLiveAudio, setIsPlayingLiveAudio] = useState(false);
   const [isConnectingAudio, setIsConnectingAudio] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [selectedTranscriptId, setSelectedTranscriptId] = useState<string | null>(null);
+  const [transcriptSummary, setTranscriptSummary] = useState<string | null>(null);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
 
   const stockWebSocket = StockWebSocket.getInstance();
 
@@ -160,7 +163,27 @@ const Dashboard: React.FC = () => {
         console.log('Fetching transcripts for:', selectedCall.symbol);
         const transcriptData = await fetchCompanyTranscripts(selectedCall.symbol);
         setTranscripts(transcriptData);
-        setSelectedTranscript(transcriptData[0]);
+        
+        // Set the most recent transcript as default and trigger summary fetch
+        if (transcriptData.length > 0) {
+          const mostRecentTranscript = transcriptData[0]; // Assuming transcripts are sorted by date desc
+          console.log('Setting most recent transcript:', mostRecentTranscript);
+          setSelectedTranscript(mostRecentTranscript);
+          setSelectedTranscriptId(mostRecentTranscript.id);
+
+          // Fetch summary for the most recent transcript
+          try {
+            setIsLoadingSummary(true);
+            const summary = await fetchEarningsCallSummary(selectedCall.symbol, mostRecentTranscript.id);
+            console.log('Fetched summary:', summary);
+            setTranscriptSummary(summary);
+          } catch (error) {
+            console.error('Error fetching initial summary:', error);
+            setTranscriptSummary(null);
+          } finally {
+            setIsLoadingSummary(false);
+          }
+        }
       } catch (error) {
         console.error('Error fetching transcripts:', error);
       }
@@ -379,6 +402,36 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  // Fetch summary when transcript selection changes
+  useEffect(() => {
+    const fetchSummary = async () => {
+      if (!selectedCompany?.symbol || !selectedTranscriptId) {
+        setTranscriptSummary(null);
+        return;
+      }
+
+      setIsLoadingSummary(true);
+      try {
+        console.log('Fetching summary for:', selectedCompany.symbol, selectedTranscriptId);
+        const summary = await fetchEarningsCallSummary(selectedCompany.symbol, selectedTranscriptId);
+        console.log('Fetched summary:', summary);
+        if (!summary) {
+          throw new Error('No summary returned from API');
+        }
+        setTranscriptSummary(summary);
+      } catch (error) {
+        console.error('Error fetching summary:', error);
+        setTranscriptSummary(null);
+      } finally {
+        setIsLoadingSummary(false);
+      }
+    };
+
+    if (selectedTranscriptId) {
+      fetchSummary();
+    }
+  }, [selectedCompany?.symbol, selectedTranscriptId]);
+
   return (
     <div className={`min-h-screen relative ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       {/* Background Pattern */}
@@ -437,13 +490,6 @@ const Dashboard: React.FC = () => {
                         ? 'bg-gray-800/50 shadow-xl shadow-gray-900/50' 
                         : 'bg-white/90 shadow-xl shadow-gray-200/50'
                     } backdrop-blur-sm relative overflow-hidden h-[500px]`}>
-                      <div className={`absolute inset-0 opacity-20 bg-gradient-to-br ${
-                        isDarkMode 
-                          ? 'from-indigo-500/10 via-transparent to-purple-500/10' 
-                          : 'from-indigo-200/50 via-transparent to-purple-200/50'
-                      }`} />
-                      
-                      {/* Content */}
                       <div className="relative z-10 h-full flex flex-col">
                         {/* Header Section */}
                         <div className="border-b border-gray-200 dark:border-gray-700 pb-4 mb-6">
@@ -525,6 +571,35 @@ const Dashboard: React.FC = () => {
                                 Full Transcription
                               </button>
                             </div>
+
+                            {/* Transcript Select */}
+                            <div className="mt-4">
+                              <select
+                                value={selectedTranscriptId || ''}
+                                onChange={(e) => setSelectedTranscriptId(e.target.value || null)}
+                                className={`w-full p-2 rounded-lg border ${
+                                  isDarkMode 
+                                    ? 'bg-gray-800 border-gray-700 text-gray-200' 
+                                    : 'bg-white border-gray-300 text-gray-900'
+                                } focus:outline-none focus:ring-2 focus:ring-indigo-500`}
+                                disabled={isLoadingEarnings}
+                              >
+                                {isLoadingEarnings ? (
+                                  <option>Loading transcripts...</option>
+                                ) : transcripts.length === 0 ? (
+                                  <option value="">No transcripts available</option>
+                                ) : (
+                                  <>
+                                    <option value="">Select an earnings call</option>
+                                    {transcripts.map((transcript: any) => (
+                                      <option key={transcript.id} value={transcript.id}>
+                                        {transcript.title} - {transcript.date}
+                                      </option>
+                                    ))}
+                                  </>
+                                )}
+                              </select>
+                            </div>
                           </div>
                         </div>
 
@@ -533,9 +608,9 @@ const Dashboard: React.FC = () => {
                           isDarkMode 
                             ? 'bg-gray-800/30 border-gray-700' 
                             : 'bg-gray-50/80 border-gray-200'
-                        } p-2`}>
+                        } p-4`}>
                           <h4 className={`font-medium mb-4 ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
-                            {isLiveCaptionOn ? 'Live Transcription' : 'Past Earnings Call\'s Summary'}
+                            {isLiveCaptionOn ? 'Live Transcription' : 'Earnings Call Summary'}
                           </h4>
                           {isLiveCaptionOn ? (
                             <LiveCaption
@@ -549,23 +624,41 @@ const Dashboard: React.FC = () => {
                                 ? 'bg-gray-800/50' 
                                 : 'bg-white'
                             } shadow-sm`}>
-                              <p className={`leading-relaxed ${
-                                isDarkMode ? 'text-gray-300' : 'text-gray-600'
-                              }`}>
-                                In the latest earnings call, the company reported strong financial performance with revenue growth of 15% year-over-year. Key highlights include expansion into new markets, successful product launches, and improved operational efficiency. The management team expressed confidence in the company's strategic initiatives and provided positive guidance for the upcoming quarters. They emphasized continued investment in R&D and digital transformation efforts. The call also addressed questions about market competition, supply chain optimization, and sustainability goals.
-                              </p>
-                              <div className="mt-4 space-y-2">
-                                <p className={`text-sm ${
+                              {isLoadingSummary ? (
+                                <div className="flex items-center justify-center py-8">
+                                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                                </div>
+                              ) : transcriptSummary ? (
+                                <div>
+                                  <p className={`leading-relaxed ${
+                                    isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                                  }`}>
+                                    {transcriptSummary}
+                                  </p>
+                                  {selectedTranscript && (
+                                    <div className="mt-4 space-y-2">
+                                      <p className={`text-sm ${
+                                        isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                                      }`}>
+                                        <strong>Date:</strong> {selectedTranscript.date}
+                                      </p>
+                                      <p className={`text-sm ${
+                                        isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                                      }`}>
+                                        <strong>Duration:</strong> {selectedTranscript.duration || '60 minutes'}
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <p className={`text-center py-4 ${
                                   isDarkMode ? 'text-gray-400' : 'text-gray-500'
                                 }`}>
-                                  <strong>Date:</strong> {selectedTranscript?.date || 'Recent'}
+                                  {selectedTranscriptId 
+                                    ? 'Failed to load summary. Please try again.' 
+                                    : 'Select an earnings call to view its summary.'}
                                 </p>
-                                <p className={`text-sm ${
-                                  isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                                }`}>
-                                  <strong>Duration:</strong> 60 minutes
-                                </p>
-                              </div>
+                              )}
                               {isCallOngoing && (
                                 <div className="mt-6 flex justify-center">
                                   <div className="animate-pulse flex flex-col items-center gap-2 text-center">

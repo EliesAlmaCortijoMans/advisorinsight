@@ -46,4 +46,30 @@ export const fetchCompanyTranscripts = async (symbol: string) => {
     console.error('Error fetching transcripts:', error);
     throw error;
   }
+};
+
+export const fetchEarningsCallSummary = async (symbol: string, callId: string) => {
+  try {
+    // First get the transcript from the cache or fetch it
+    const transcripts = await fetchCompanyTranscripts(symbol);
+    const transcript = transcripts.find((t: any) => t.id === callId);
+    
+    if (!transcript) {
+      throw new Error(`Transcript ${callId} not found for ${symbol}`);
+    }
+
+    // Now get the summary from the API
+    const response = await fetch(`/api/stock/earnings-summary/${symbol}/${callId}/`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to fetch earnings call summary');
+    }
+    return data.summary;
+  } catch (error) {
+    console.error('Error fetching earnings call summary:', error);
+    throw error;
+  }
 }; 

@@ -774,3 +774,127 @@ def test_market_impact(request):
         return Response({
             'error': 'Internal server error'
         }, status=500)
+
+@api_view(['GET'])
+def get_earnings_call_summary(request, symbol, call_id):
+    """Generate a summary of an earnings call using GPT-3.5-turbo-16k"""
+    try:
+        # Get OpenAI API key from settings
+        api_key = settings.OPENAI_API_KEY
+        if not api_key:
+            logger.error("OpenAI API key not found in settings")
+            return JsonResponse({
+                'success': False,
+                'error': 'OpenAI API key not configured'
+            }, status=500)
+        
+        logger.info(f"Using OpenAI API key: {api_key[:10]}...")
+        
+        # Get the transcript file path
+        transcript_dir = Path(__file__).resolve().parent.parent / 'data' / symbol / 'transcripts'
+        transcript_file = transcript_dir / f"{call_id}.json"
+        
+        logger.info(f"Looking for transcript file at: {transcript_file}")
+        
+        if not transcript_file.exists():
+            logger.error(f"Transcript file not found at: {transcript_file}")
+            return JsonResponse({
+                'success': False,
+                'error': f'No transcript found for {symbol} call {call_id}'
+            }, status=404)
+        
+        # Read and process the transcript
+        try:
+            with open(transcript_file, 'r') as f:
+                transcript_data = json.load(f)
+        except json.JSONDecodeError as e:
+            logger.error(f"Error decoding JSON from transcript file: {e}")
+            return JsonResponse({
+                'success': False,
+                'error': f'Invalid transcript file format: {str(e)}'
+            }, status=500)
+        except Exception as e:
+            logger.error(f"Error reading transcript file: {e}")
+            return JsonResponse({
+                'success': False,
+                'error': f'Error reading transcript file: {str(e)}'
+            }, status=500)
+        
+        # Extract the relevant parts of the transcript
+        try:
+            transcript_text = ""
+            for entry in transcript_data.get('transcript', []):
+                speaker = entry.get('name', '')
+                for speech in entry.get('speech', []):
+                    transcript_text += f"{speaker}: {speech}\n\n"
+            
+            if not transcript_text.strip():
+                logger.error("Empty transcript text generated")
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Empty transcript text'
+                }, status=500)
+            
+            logger.info(f"Generated transcript text of length: {len(transcript_text)}")
+        except Exception as e:
+            logger.error(f"Error processing transcript data: {e}")
+            return JsonResponse({
+                'success': False,
+                'error': f'Error processing transcript: {str(e)}'
+            }, status=500)
+        
+        # Generate summary using GPT-3.5-turbo-16k
+        try:
+            # Initialize OpenAI client
+            client = OpenAI(api_key=api_key)
+            
+            logger.info("Making request to OpenAI API...")
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo-16k",  # Using GPT-3.5-turbo-16k for longer context
+                messages=[
+                    {"role": "system", "content": "You are a financial analyst assistant. Summarize the key points from this earnings call transcript, focusing on financial performance, future guidance, and important announcements. Be concise but comprehensive."},
+                    {"role": "user", "content": transcript_text}
+                ],
+                max_tokens=1000,
+                temperature=0.3
+            )
+            
+            if not response or not response.choices:
+                logger.error("Empty response from OpenAI API")
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Empty response from OpenAI API'
+                }, status=500)
+            
+            summary = response.choices[0].message.content
+            if not summary:
+                logger.error("Empty summary received from OpenAI API")
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Empty summary received from OpenAI API'
+                }, status=500)
+            
+            logger.info(f"Successfully generated summary of length: {len(summary)}")
+            
+            # Cache the summary
+            cache_key = f"earnings_summary_{symbol}_{call_id}"
+            cache.set(cache_key, summary, 60 * 60 * 24)  # Cache for 24 hours
+            
+            return JsonResponse({
+                'success': True,
+                'summary': summary
+            })
+            
+        except Exception as api_error:
+            logger.error(f"OpenAI API error: {str(api_error)}")
+            return JsonResponse({
+                'success': False,
+                'error': f'Error generating summary: {str(api_error)}'
+            }, status=500)
+        
+    except Exception as e:
+        logger.error(f"Error generating summary for {symbol} call {call_id}: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
