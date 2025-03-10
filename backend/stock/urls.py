@@ -6,4 +6,6 @@ urlpatterns = [
     path('transcribe-audio/', views.transcribe_audio, name='transcribe-audio'),
     path('earnings-schedule/', views.get_earnings_schedule_view, name='earnings-schedule'),
     path('social-sentiment/', views.stock_social_sentiment, name='social-sentiment'),
+    path('market-impact/<str:symbol>/', views.get_market_impact, name='market-impact'),
+    path('test-market-impact/', views.test_market_impact, name='test-market-impact'),
 ] 

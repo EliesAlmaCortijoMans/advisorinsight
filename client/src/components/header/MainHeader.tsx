@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { 
@@ -9,12 +9,12 @@ import {
   HelpCircle, 
   List, 
   GitCompare, 
-  Bell,
   Moon,
   Sun,
   LogIn
 } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
+import NotificationCenter from '../notifications/NotificationCenter';
 
 interface MainHeaderProps {
   isMarketOpen: boolean;
@@ -44,8 +44,7 @@ const MainHeader: React.FC<MainHeaderProps> = ({ isMarketOpen, nextMarketOpen })
 
   const optionalNavItems: NavItem[] = [
     { id: 'watchlist', label: 'Watchlist', icon: <List className="w-4 h-4" />, path: '/watchlist', isOptional: true },
-    { id: 'compare', label: 'Compare', icon: <GitCompare className="w-4 h-4" />, path: '/compare', isOptional: true },
-    { id: 'notifications', label: 'Notifications', icon: <Bell className="w-4 h-4" />, path: '/notifications', isOptional: true },
+    { id: 'compare', label: 'Compare', icon: <GitCompare className="w-4 h-4" />, path: '/compare', isOptional: true }
   ];
 
   const handleNavigation = (path: string) => {
@@ -116,7 +115,7 @@ const MainHeader: React.FC<MainHeaderProps> = ({ isMarketOpen, nextMarketOpen })
           </nav>
         </div>
 
-        {/* Optional Navigation and Login - Right edge */}
+        {/* Optional Navigation and Actions - Right edge */}
         <div className="flex items-center space-x-2 md:space-x-4">
           {optionalNavItems.map((item) => (
             <button
@@ -135,6 +134,8 @@ const MainHeader: React.FC<MainHeaderProps> = ({ isMarketOpen, nextMarketOpen })
               {item.icon}
             </button>
           ))}
+
+          <NotificationCenter />
 
           <button
             onClick={toggleTheme}

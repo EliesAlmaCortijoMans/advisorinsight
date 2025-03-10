@@ -55,8 +55,8 @@ const SentimentAnalysis: React.FC<SentimentAnalysisProps> = ({ symbol }) => {
       
       try {
         setIsLoading(true);
-        console.log('Making API request to:', `http://localhost:8000/api/social-sentiment/?symbol=${symbol}`);
-        const response = await fetch(`http://localhost:8000/api/social-sentiment/?symbol=${symbol}`);
+        console.log('Making API request to:', `/api/stock/social-sentiment/?symbol=${symbol}`);
+        const response = await fetch(`/api/stock/social-sentiment/?symbol=${symbol}`);
         const data = await response.json();
         
         if (data.error) {
@@ -67,7 +67,7 @@ const SentimentAnalysis: React.FC<SentimentAnalysisProps> = ({ symbol }) => {
         console.log('Data length:', data.data.length);
         console.log('First data point:', data.data[0]);
         setSentimentData(data.data);
-        setData(data.data.length > 0 ? data.data[0] : null);
+        setData(data);  // Store the entire response to check is_mock
       } catch (err) {
         console.error('Error fetching sentiment data:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch sentiment data');

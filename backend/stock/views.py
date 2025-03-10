@@ -615,3 +615,162 @@ def stock_social_sentiment(request):
     except Exception as e:
         logger.error(f"Error fetching social sentiment for {symbol}: {str(e)}", exc_info=True)
         return JsonResponse({'error': f'Failed to fetch social sentiment: {str(e)}'}, status=500)
+
+@api_view(['GET'])
+def get_market_impact(request, symbol):
+    """
+    Get market impact data including stock candles for short-term analysis
+    """
+    try:
+        if not settings.FINNHUB_API_KEY:
+            logger.error("FINNHUB_API_KEY not found in settings")
+            response = JsonResponse({
+                'error': 'Finnhub API key not configured. Please check your environment variables.'
+            }, status=500)
+            response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+            response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+            response["Access-Control-Allow-Headers"] = "Content-Type"
+            return response
+
+        # Define the time range (last trading day intraday)
+        to_time = int(datetime.now().timestamp())
+        from_time = to_time - (24 * 60 * 60)  # 24 hours ago
+
+        logger.info(f"Fetching stock candle data for {symbol} from {from_time} to {to_time}")
+        logger.info(f"Using Finnhub API key: {settings.FINNHUB_API_KEY[:5]}...")
+
+        # Get stock candle data from Finnhub
+        try:
+            candle_data = finnhub_client.stock_candles(
+                symbol=symbol,
+                resolution='1',  # 1-minute resolution
+                _from=from_time,
+                to=to_time
+            )
+            logger.info(f"Raw Finnhub response for {symbol}: {candle_data}")
+        except Exception as api_error:
+            logger.error(f"Finnhub API error for {symbol}: {str(api_error)}")
+            response = JsonResponse({
+                'error': f'Error calling Finnhub API: {str(api_error)}'
+            }, status=500)
+            response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+            response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+            response["Access-Control-Allow-Headers"] = "Content-Type"
+            return response
+
+        if candle_data.get('s') != 'ok' or not candle_data.get('h'):
+            error_msg = 'No data available'
+            if candle_data.get('s') == 'no_data':
+                error_msg = f'No data available for {symbol}. This could be because the market is closed or the symbol is invalid.'
+            elif 'error' in candle_data:
+                error_msg = candle_data['error']
+            
+            logger.error(f"Failed to fetch stock candle data for {symbol}: {error_msg}")
+            response = JsonResponse({
+                'error': error_msg
+            }, status=400)
+            response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+            response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+            response["Access-Control-Allow-Headers"] = "Content-Type"
+            return response
+
+        # Calculate metrics
+        high_price = max(candle_data['h'])
+        low_price = min(candle_data['l'])
+        total_volume = sum(candle_data['v'])
+        spread_percent = ((high_price - low_price) / low_price) * 100
+
+        # Format response
+        response_data = {
+            'intraday_range': {
+                'high': round(high_price, 2),
+                'low': round(low_price, 2),
+                'spread_percent': round(spread_percent, 1)
+            },
+            'volume': {
+                'total': round(total_volume / 1_000_000, 1),  # Convert to millions
+                'unit': 'M'
+            },
+            'time_range': {
+                'from': datetime.fromtimestamp(from_time).isoformat(),
+                'to': datetime.fromtimestamp(to_time).isoformat()
+            },
+            'candles': {
+                'timestamps': candle_data['t'],
+                'high': candle_data['h'],
+                'low': candle_data['l'],
+                'open': candle_data['o'],
+                'close': candle_data['c'],
+                'volume': candle_data['v']
+            }
+        }
+
+        response = JsonResponse(response_data)
+        response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+        response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+
+    except Exception as e:
+        logger.error(f"Error fetching market impact data for {symbol}: {str(e)}")
+        response = JsonResponse({
+            'error': f'Internal server error while fetching data for {symbol}: {str(e)}'
+        }, status=500)
+        response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+        response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+
+@api_view(['GET'])
+def test_market_impact(request):
+    """
+    Test endpoint to verify market impact functionality
+    """
+    try:
+        symbol = "IBM"  # Test with IBM
+        to_time = int(datetime.now().timestamp())
+        from_time = to_time - (24 * 60 * 60)  # 24 hours ago
+
+        # Get stock candle data from Finnhub
+        candle_data = finnhub_client.stock_candles(
+            symbol=symbol,
+            resolution='1',  # 1-minute resolution
+            _from=from_time,
+            to=to_time
+        )
+
+        if candle_data['s'] != 'ok':
+            return Response({
+                'error': 'Failed to fetch stock candle data'
+            }, status=400)
+
+        # Calculate metrics
+        high_price = max(candle_data['h'])
+        low_price = min(candle_data['l'])
+        total_volume = sum(candle_data['v'])
+        spread_percent = ((high_price - low_price) / low_price) * 100
+
+        # Format response
+        response_data = {
+            'intraday_range': {
+                'high': round(high_price, 2),
+                'low': round(low_price, 2),
+                'spread_percent': round(spread_percent, 1)
+            },
+            'volume': {
+                'total': round(total_volume / 1_000_000, 1),  # Convert to millions
+                'unit': 'M'
+            },
+            'time_range': {
+                'from': datetime.fromtimestamp(from_time).isoformat(),
+                'to': datetime.fromtimestamp(to_time).isoformat()
+            }
+        }
+
+        return Response(response_data)
+
+    except Exception as e:
+        logger.error(f"Error in test market impact: {str(e)}")
+        return Response({
+            'error': 'Internal server error'
+        }, status=500)

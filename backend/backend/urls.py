@@ -25,5 +25,5 @@ urlpatterns = [
     path('api/transcripts/<str:symbol>/', views.get_company_transcripts, name='company_transcripts'),
     path('api/audio-history/<str:symbol>/', views.get_audio_history, name='audio_history'),
     path('api/earnings-schedule/', views.get_earnings_schedule_view, name='earnings_schedule'),
-    path('api/', include('stock.urls')),  # Include stock app URLs
+    path('api/stock/', include('stock.urls')),  # Include stock app URLs with correct prefix
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

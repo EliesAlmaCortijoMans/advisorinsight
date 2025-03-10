@@ -17,13 +17,14 @@ import { fetchCompanyTranscripts, prefetchAllTranscripts } from '../services/tra
 import { fetchAudioHistory } from '../services/audioService';
 import { fetchEarningsSchedule } from '../services/earningsService';
 import { useTheme } from '../contexts/ThemeContext';
+import { useSelectedCompany } from '../contexts/CompanyContext';
 import CallSummaryPanel from '../components/CallSummaryPanel';
 import LiveCaption from '../components/LiveCaption';
 
 type PriceUpdateCallback = (data: any) => void;
 
 const Dashboard: React.FC = () => {
-  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+  const { selectedCompany, setSelectedCompany } = useSelectedCompany();
   const [activeTab, setActiveTab] = useState<AnalysisTab>('sentiment');
   const [showAudioHistory, setShowAudioHistory] = useState(false);
   const [showFullTranscript, setShowFullTranscript] = useState(false);
