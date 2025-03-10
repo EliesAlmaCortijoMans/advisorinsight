@@ -277,13 +277,13 @@ const MarketImpact: React.FC = () => {
     };
 
     return (
-      <div className="grid grid-cols-1 gap-6">
+      <div className="grid grid-cols-2 gap-6">
         {/* EPS Chart */}
         <div className={`rounded-lg border p-6 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'}`}>
-          <h4 className={`text-lg font-medium mb-4 ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>
+          <h3 className={`text-lg font-medium mb-4 ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>
             Expected EPS for {longTermData.year}
-          </h4>
-          <div className="h-80">
+          </h3>
+          <div className="h-40">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={longTermData.quarters}>
                 <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#374151' : '#e5e7eb'} />
@@ -311,10 +311,10 @@ const MarketImpact: React.FC = () => {
 
         {/* Revenue Chart */}
         <div className={`rounded-lg border p-6 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'}`}>
-          <h4 className={`text-lg font-medium mb-4 ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>
+          <h3 className={`text-lg font-medium mb-4 ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>
             Expected Revenue for {longTermData.year}
-          </h4>
-          <div className="h-80">
+          </h3>
+          <div className="h-40">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={longTermData.quarters}>
                 <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#374151' : '#e5e7eb'} />
@@ -344,25 +344,86 @@ const MarketImpact: React.FC = () => {
     );
   };
 
+  const timeframes: Array<{id: 'short' | 'medium' | 'long', label: string, description: string}> = [
+    {
+      id: 'short',
+      label: 'Short Term',
+      description: 'Intraday market movements and volatility'
+    },
+    {
+      id: 'medium',
+      label: 'Medium Term',
+      description: 'Analyst ratings and sector performance'
+    },
+    {
+      id: 'long',
+      label: 'Long Term',
+      description: 'Quarterly EPS and revenue forecasts'
+    }
+  ];
+
   return (
     <div className="space-y-8">
       {/* Time Frame Selector */}
-      <div className="flex space-x-4">
-        {['short', 'medium', 'long'].map((frame) => (
-          <button
-            key={frame}
-            onClick={() => setTimeframe(frame as 'short' | 'medium' | 'long')}
-            className={`px-4 py-2 rounded-md text-sm font-medium ${
-              timeframe === frame
-                ? 'bg-blue-600 text-white'
-                : isDarkMode 
-                  ? 'bg-gray-700 text-gray-200 hover:bg-gray-600'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            {frame.charAt(0).toUpperCase() + frame.slice(1)} Term
-          </button>
-        ))}
+      <div className={`border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'} mb-4`}>
+        <div className="flex gap-1 overflow-x-auto pb-1 hide-scrollbar">
+          {timeframes.map((frame) => (
+            <button
+              key={frame.id}
+              onClick={() => setTimeframe(frame.id)}
+              className={`
+                group flex items-center px-3 py-2 rounded-lg transition-all duration-200
+                ${timeframe === frame.id
+                  ? isDarkMode
+                    ? 'bg-blue-900/20 text-blue-400'
+                    : 'bg-blue-50 text-blue-700'
+                  : isDarkMode
+                    ? 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }
+                ${timeframe === frame.id ? 'shadow-sm' : ''}
+                relative
+              `}
+            >
+              <div className="flex items-center">
+                <span className="text-sm font-medium whitespace-nowrap tracking-wide">
+                  {frame.label}
+                </span>
+              </div>
+              
+              {/* Active Tab Indicator */}
+              {timeframe === frame.id && (
+                <div className={`
+                  absolute bottom-0 left-0 right-0 h-0.5 rounded-full
+                  ${isDarkMode ? 'bg-blue-500' : 'bg-blue-600'}
+                  animate-fade-in
+                `} />
+              )}
+
+              {/* Tooltip */}
+              <div className={`
+                absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5
+                text-xs font-normal rounded-lg whitespace-nowrap opacity-0 invisible
+                transition-all duration-200 z-10 shadow-lg
+                ${isDarkMode
+                  ? 'bg-gray-800 text-gray-200'
+                  : 'bg-gray-900 text-white'
+                }
+                group-hover:opacity-100 group-hover:visible
+              `}>
+                {frame.description}
+                <div className={`
+                  absolute top-full left-1/2 transform -translate-x-1/2 -mt-1
+                  border-4 border-transparent
+                  ${isDarkMode
+                    ? 'border-t-gray-800'
+                    : 'border-t-gray-900'
+                  }
+                `} />
+              </div>
+            </button>
+          ))}
+        </div>
       </div>
 
       {isLoading ? (

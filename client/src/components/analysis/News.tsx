@@ -140,12 +140,12 @@ const News: React.FC<NewsProps> = ({ symbol }) => {
             placeholder="Search news..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400"
           />
           {searchTerm && (
             <button
               onClick={() => setSearchTerm('')}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
             >
               <X className="w-4 h-4" />
             </button>
@@ -159,8 +159,8 @@ const News: React.FC<NewsProps> = ({ symbol }) => {
               onClick={() => toggleCategory(category.id)}
               className={`px-3 py-1 rounded-full text-sm font-medium transition-colors
                 ${selectedCategories.includes(category.id)
-                  ? `bg-${category.color}-100 text-${category.color}-800 border-${category.color}-300`
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? `bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 border border-indigo-300 dark:border-indigo-700`
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 border border-transparent'
                 }`}
             >
               {category.label}
@@ -177,7 +177,7 @@ const News: React.FC<NewsProps> = ({ symbol }) => {
           </div>
         ) : (
           filteredNews.map((item) => (
-            <div key={item.id} className="bg-white rounded-lg border p-6 hover:shadow-lg transition-shadow">
+            <div key={item.id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 hover:shadow-lg transition-shadow">
               <div className="flex items-start space-x-4">
                 {item.image && (
                   <img
@@ -192,22 +192,22 @@ const News: React.FC<NewsProps> = ({ symbol }) => {
                 )}
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-gray-500">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
                       {item.source} • {format(item.datetime * 1000, 'MMM d, yyyy')}
                     </span>
                     <a
                       href={item.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-indigo-600 hover:text-indigo-800"
+                      className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300"
                     >
                       <ExternalLink className="w-4 h-4" />
                     </a>
                   </div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                     {item.headline}
                   </h3>
-                  <p className="text-gray-600 line-clamp-3">
+                  <p className="text-gray-600 dark:text-gray-300 line-clamp-3">
                     {item.summary}
                   </p>
                   <div className="mt-2">
