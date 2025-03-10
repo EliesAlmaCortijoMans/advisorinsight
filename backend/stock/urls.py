@@ -9,4 +9,6 @@ urlpatterns = [
     path('market-impact/<str:symbol>/', views.get_market_impact, name='market-impact'),
     path('test-market-impact/', views.test_market_impact, name='test-market-impact'),
     path('earnings-summary/<str:symbol>/<str:call_id>/', views.get_earnings_call_summary, name='earnings-summary'),
+    path('market-impact/medium-term/<str:symbol>/', views.get_medium_term_impact, name='medium_term_impact'),
+    path('market-impact/long-term/<str:symbol>/', views.get_long_term_impact, name='long_term_impact'),
 ] 

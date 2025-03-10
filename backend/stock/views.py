@@ -898,3 +898,173 @@ def get_earnings_call_summary(request, symbol, call_id):
             'success': False,
             'error': str(e)
         }, status=500)
+
+@api_view(['GET'])
+def get_medium_term_impact(request, symbol):
+    """Get medium-term market impact data including analyst ratings and sector comparison."""
+    try:
+        # Get analyst ratings
+        params = {"symbol": symbol, "token": settings.FINNHUB_API_KEY}
+        recommendation_url = "https://finnhub.io/api/v1/stock/recommendation"
+        price_target_url = "https://finnhub.io/api/v1/stock/price-target"
+        
+        # Fetch analyst recommendations
+        rec_response = session.get(recommendation_url, params=params)
+        if not rec_response.ok:
+            return Response({'error': 'Failed to fetch analyst recommendations'}, status=400)
+        
+        ratings_data = rec_response.json()
+        if not ratings_data:
+            return Response({'error': 'No analyst ratings available'}, status=404)
+            
+        latest_ratings = ratings_data[0]  # Most recent ratings
+        
+        # Fetch price target
+        pt_response = session.get(price_target_url, params=params)
+        if not pt_response.ok:
+            return Response({'error': 'Failed to fetch price target'}, status=400)
+            
+        price_target_data = pt_response.json()
+        
+        # Get sector comparison data
+        peers_url = "https://finnhub.io/api/v1/stock/peers"
+        peers_response = session.get(peers_url, params=params)
+        if not peers_response.ok:
+            return Response({'error': 'Failed to fetch peer companies'}, status=400)
+            
+        peers = peers_response.json()
+        
+        # Get performance data for peers
+        peer_performance = {}
+        for peer in peers:
+            quote_params = {"symbol": peer, "token": settings.FINNHUB_API_KEY}
+            quote_response = session.get("https://finnhub.io/api/v1/quote", params=quote_params)
+            if quote_response.ok:
+                quote_data = quote_response.json()
+                # Get percentage change and current price
+                peer_performance[peer] = {
+                    'change_percent': quote_data.get('dp', 0),  # dp is percentage change
+                    'current_price': quote_data.get('c', 0),  # c is current price
+                    'change': quote_data.get('d', 0)  # d is price change
+                }
+                
+        # Calculate sector metrics
+        valid_performances = [p['change_percent'] for p in peer_performance.values() if p['change_percent'] is not None]
+        sector_avg_performance = sum(valid_performances) / len(valid_performances) if valid_performances else 0
+        
+        # Get the stock's performance
+        stock_performance = peer_performance.get(symbol, {'change_percent': 0})['change_percent']
+        relative_performance = stock_performance - sector_avg_performance
+        
+        # Calculate sector rank
+        sorted_peers = sorted(
+            [(p, data['change_percent']) for p, data in peer_performance.items()],
+            key=lambda x: x[1],
+            reverse=True
+        )
+        sector_rank = next((i + 1 for i, (peer, _) in enumerate(sorted_peers) if peer == symbol), len(sorted_peers))
+        
+        # Get beta value
+        metric_params = {"symbol": symbol, "metric": "all", "token": settings.FINNHUB_API_KEY}
+        metric_response = session.get("https://finnhub.io/api/v1/stock/metric", params=metric_params)
+        beta = metric_response.json().get('metric', {}).get('beta', None) if metric_response.ok else None
+        
+        response_data = {
+            'analyst_ratings': {
+                'buy': latest_ratings.get('buy', 0),
+                'hold': latest_ratings.get('hold', 0),
+                'sell': latest_ratings.get('sell', 0),
+                'price_target': price_target_data.get('targetMean'),
+                'price_target_high': price_target_data.get('targetHigh'),
+                'price_target_low': price_target_data.get('targetLow'),
+            },
+            'sector_comparison': {
+                'peer_companies': peers,
+                'relative_performance': relative_performance,
+                'sector_avg_performance': sector_avg_performance,
+                'stock_performance': stock_performance,
+                'sector_rank': sector_rank,
+                'total_peers': len(peers),
+                'beta': beta,
+                'peer_performance': peer_performance
+            }
+        }
+        
+        return Response(response_data)
+        
+    except Exception as e:
+        logger.error(f"Error in get_medium_term_impact: {str(e)}")
+        return Response({'error': str(e)}, status=500)
+
+@api_view(['GET'])
+def get_long_term_impact(request, symbol):
+    """Get long-term market impact data including EPS and revenue estimates."""
+    try:
+        # Get EPS estimates
+        eps_url = "https://finnhub.io/api/v1/stock/eps-estimate"
+        params = {
+            "symbol": symbol,
+            "freq": "quarterly",
+            "token": settings.FINNHUB_API_KEY
+        }
+        
+        eps_response = session.get(eps_url, params=params)
+        if not eps_response.ok:
+            return Response({'error': 'Failed to fetch EPS estimates'}, status=400)
+            
+        eps_data = eps_response.json()
+        
+        # Get revenue estimates
+        revenue_url = "https://finnhub.io/api/v1/stock/revenue-estimate"
+        revenue_response = session.get(revenue_url, params=params)
+        if not revenue_response.ok:
+            return Response({'error': 'Failed to fetch revenue estimates'}, status=400)
+            
+        revenue_data = revenue_response.json()
+        
+        # Process the data
+        if "data" not in eps_data or "data" not in revenue_data:
+            return Response({'error': 'No estimate data available'}, status=404)
+            
+        # Find the latest year
+        latest_year = max(item["year"] for item in eps_data["data"])
+        
+        # Initialize quarters data
+        quarters_data = []
+        for q in range(1, 5):  # Q1 to Q4
+            quarter_data = {
+                "quarter": f"Q{q}",
+                "eps": None,
+                "revenue": None
+            }
+            
+            # Find EPS data for this quarter
+            eps_item = next(
+                (item for item in eps_data["data"] 
+                 if item["year"] == latest_year and item["quarter"] == q),
+                None
+            )
+            if eps_item:
+                quarter_data["eps"] = eps_item["epsAvg"]
+                
+            # Find revenue data for this quarter
+            revenue_item = next(
+                (item for item in revenue_data["data"]
+                 if item["year"] == latest_year and item["quarter"] == q),
+                None
+            )
+            if revenue_item:
+                quarter_data["revenue"] = revenue_item["revenueAvg"]
+                
+            quarters_data.append(quarter_data)
+        
+        response_data = {
+            'year': latest_year,
+            'quarters': quarters_data
+        }
+        
+        return Response(response_data)
+        
+    except Exception as e:
+        logger.error(f"Error in get_long_term_impact: {str(e)}")
+        return Response({'error': str(e)}, status=500)
