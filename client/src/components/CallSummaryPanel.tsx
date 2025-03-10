@@ -21,11 +21,26 @@ interface CallSummaryPanelProps {
     date: string;
     time: string;
     status: string;
+    actualEPS?: number;
+    expectedEPS?: number;
+    revenue?: number;
+    keyHighlights?: string[];
+    guidance?: {
+      revenue?: number;
+      eps?: number;
+    };
+    marketImpact?: {
+      priceChange: number;
+      volumeChange: number;
+    };
+    sentiment?: string;
   };
+  onViewFullSummary: () => void;
 }
 
 const CallSummaryPanel: React.FC<CallSummaryPanelProps> = ({ 
-  call
+  call,
+  onViewFullSummary
 }) => {
   const { isDarkMode } = useTheme();
 
