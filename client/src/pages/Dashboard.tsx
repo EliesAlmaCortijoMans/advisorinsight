@@ -78,8 +78,6 @@ const Dashboard: React.FC = () => {
     if (selectedCompany?.symbol === data.symbol) {
       setStockData(newStockData);
       setIsLoadingStockPrice(false);
-      setIsMarketOpen(data.isLive);
-      setNextMarketOpen(data.nextMarketOpen);
     }
 
     setSidebarStockData(prev => ({
@@ -380,8 +378,6 @@ const Dashboard: React.FC = () => {
       const data = sidebarStockData[company.symbol];
       setStockData(data);
       setLoadingStockData(false);
-      setIsMarketOpen(data.isLive);
-      setNextMarketOpen(data.nextMarketOpen);
     }
   };
 

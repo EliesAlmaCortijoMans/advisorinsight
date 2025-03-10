@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { CompanyProvider } from './contexts/CompanyContext';
@@ -15,6 +15,42 @@ import CompareCompanies from './pages/CompareCompanies';
 const App: React.FC = () => {
   const [isMarketOpen, setIsMarketOpen] = useState(false);
   const [nextMarketOpen, setNextMarketOpen] = useState<number | null>(null);
+  const [ws, setWs] = useState<WebSocket | null>(null);
+
+  useEffect(() => {
+    // Connect to WebSocket
+    console.log('Attempting to connect to WebSocket...');
+    const websocket = new WebSocket('ws://localhost:8000/ws/stock/');
+
+    websocket.onopen = () => {
+      console.log('WebSocket connection established');
+    };
+
+    websocket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      console.log('Received WebSocket message:', data);
+      if (data.type === 'market_status') {
+        console.log('Updating market status:', { isOpen: data.isOpen, nextOpen: data.nextOpen });
+        setIsMarketOpen(data.isOpen);
+        setNextMarketOpen(data.nextOpen);
+      }
+    };
+
+    websocket.onclose = () => {
+      console.log('WebSocket connection closed');
+    };
+
+    websocket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
+    setWs(websocket);
+
+    return () => {
+      console.log('Cleaning up WebSocket connection');
+      websocket.close();
+    };
+  }, []);
 
   return (
     <ThemeProvider>

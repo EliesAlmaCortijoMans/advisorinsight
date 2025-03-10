@@ -83,6 +83,8 @@ class StockConsumer(AsyncWebsocketConsumer):
                 market_open <= now <= market_close
             )
             
+            logger.info(f"Market is {'open' if is_open else 'closed'}")
+            
             # Calculate next market open time
             next_open = None
             if not is_open:
@@ -203,6 +205,12 @@ class StockConsumer(AsyncWebsocketConsumer):
         try:
             await self.accept()
             logger.info("Client connected successfully")
+            
+            # Send initial market status
+            market_status = self.get_market_status()
+            logger.info(f"Sending initial market status: {market_status}")
+            await self.send_market_status(market_status)
+            
         except Exception as e:
             logger.error(f"Error during connection: {str(e)}")
             raise
@@ -274,6 +282,19 @@ class StockConsumer(AsyncWebsocketConsumer):
                 'error': str(e)
             }))
 
+    async def send_market_status(self, market_status):
+        """Send market status update to the client"""
+        try:
+            status_data = {
+                'type': 'market_status',
+                'isOpen': market_status['is_open'],
+                'nextOpen': market_status['next_open']
+            }
+            await self.send(text_data=json.dumps(status_data))
+            logger.info(f"Successfully sent market status update: {status_data}")
+        except Exception as e:
+            logger.error(f"Error sending market status: {str(e)}")
+
     async def send_periodic_updates(self):
         """Send periodic price updates for all subscribed symbols"""
         logger.info("Starting periodic updates for all symbols")
@@ -284,6 +305,9 @@ class StockConsumer(AsyncWebsocketConsumer):
                     # Get market status once for all symbols
                     market_status = self.get_market_status()
                     logger.info(f"Market status: {market_status}")
+
+                    # Send market status update
+                    await self.send_market_status(market_status)
 
                     # Handle market closing transition
                     if last_market_status and last_market_status['is_open'] and not market_status['is_open']:

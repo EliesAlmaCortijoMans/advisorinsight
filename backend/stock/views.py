@@ -688,8 +688,8 @@ def get_market_impact(request, symbol):
                 'spread_percent': round(spread_percent, 1)
             },
             'volume': {
-                'total': round(total_volume / 1_000_000, 1),  # Convert to millions
-                'unit': 'M'
+                'total': f"{total_volume / 1_000:.0f}",  # Convert to millions
+                'unit': 'K'
             },
             'time_range': {
                 'from': datetime.fromtimestamp(from_time).isoformat(),
