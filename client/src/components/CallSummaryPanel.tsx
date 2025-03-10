@@ -62,11 +62,14 @@ const CallSummaryPanel: React.FC<CallSummaryPanelProps> = ({
       <div className="relative z-10 flex flex-col h-full">
         {/* Title Section */}
         <div className="border-b border-gray-200 dark:border-gray-700 pb-4 mb-6">
-          <h3 className={`text-xl font-semibold ${
-            isDarkMode ? 'text-gray-100' : 'text-gray-900'
-          }`}>
-            Key Highlights
-          </h3>
+          <div className="flex justify-between items-center">
+            <h3 className={`text-xl font-semibold ${
+              isDarkMode ? 'text-gray-100' : 'text-gray-900'
+            }`}>
+              Key Highlights
+            </h3>
+            
+          </div>
         </div>
 
         {/* Scrollable Content */}
