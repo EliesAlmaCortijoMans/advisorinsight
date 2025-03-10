@@ -17,4 +17,4 @@ backend/**/.DS_Store
 backend/**/node_modules/
 backend/**/dist/
 backend/**/build/
-
+backend/data
