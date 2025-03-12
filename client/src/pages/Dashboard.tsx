@@ -13,7 +13,7 @@ import { Headphones, FileText, Radio, ToggleLeft, ToggleRight, Play, Pause } fro
 import TranscriptModal from '../components/modals/TranscriptModal';
 import SummaryModal from '../components/modals/SummaryModal';
 import { StockWebSocket } from '../services/stockWebSocket';
-import { fetchCompanyTranscripts, prefetchAllTranscripts, fetchEarningsCallSummary } from '../services/transcriptService';
+import { fetchCompanyTranscripts, prefetchAllTranscripts, fetchEarningsCallSummary, transcriptCache } from '../services/transcriptService';
 import { fetchAudioHistory } from '../services/audioService';
 import { fetchEarningsSchedule } from '../services/earningsService';
 import { useTheme } from '../contexts/ThemeContext';
@@ -369,7 +369,23 @@ const Dashboard: React.FC = () => {
   );
 
   const onSelectCompany = (company: Company) => {
-    setSelectedCompany(company);
+    // Find the most recent transcript ID for this company
+    const selectedCall = earningsData.find(call => call.company === company.name);
+    if (selectedCall?.symbol) {
+      const companyTranscripts = transcriptCache.get(selectedCall.symbol);
+      if (companyTranscripts?.length > 0) {
+        const mostRecentTranscript = companyTranscripts[0]; // Assuming sorted by date desc
+        setSelectedCompany({
+          ...company,
+          latestTranscriptId: mostRecentTranscript.id
+        });
+      } else {
+        setSelectedCompany(company);
+      }
+    } else {
+      setSelectedCompany(company);
+    }
+    
     setStockData(null);
     setLoadingStockData(true);
     

@@ -21,12 +21,39 @@ from dotenv import load_dotenv
 import random
 from langchain.prompts import ChatPromptTemplate
 from langchain.chains.llm import LLMChain
+from langchain.chat_models import ChatOpenAI
+from langchain.schema import BaseOutputParser
 
 # Set up logging
 logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
+
+# Set up LLM
+llm = ChatOpenAI(
+    model="gpt-3.5-turbo-16k",
+    temperature=0.3,
+    api_key=settings.OPENAI_API_KEY
+)
+
+# Set up JSON parser
+class QAAnalysisParser(BaseOutputParser):
+    def parse(self, text: str) -> dict:
+        try:
+            # Remove any markdown formatting if present
+            clean_text = text.replace("```json", "").replace("```", "").strip()
+            return json.loads(clean_text)
+        except json.JSONDecodeError as e:
+            logger.error(f"Error parsing LLM output: {e}")
+            logger.error(f"Raw text: {text}")
+            return {
+                "response_quality": 0,
+                "questions_addressed": 0,
+                "follow_up_questions": 0
+            }
+
+parser = QAAnalysisParser()
 
 # Use settings.FINNHUB_API_KEY instead of loading directly from environment
 finnhub_client = finnhub.Client(api_key=settings.FINNHUB_API_KEY)
@@ -1108,6 +1135,32 @@ def news_sentiment(request):
         logger.error(f"Error fetching news sentiment for {symbol}: {str(e)}", exc_info=True)
         return JsonResponse({'error': f'Failed to fetch news sentiment: {str(e)}'}, status=500)
 
+def preprocess_transcript(executives, qa_section):
+    """Process Q&A section of transcript into a structured format."""
+    processed_qa = []
+    current_question = None
+    
+    for item in qa_section:
+        name = item['name']
+        is_executive = name in executives
+        
+        for speech in item['speech']:
+            if not is_executive:  # This is an analyst asking a question
+                current_question = {
+                    'analyst': name,
+                    'question': speech,
+                    'responses': []
+                }
+                processed_qa.append(current_question)
+            else:  # This is an executive responding
+                if current_question:
+                    current_question['responses'].append({
+                        'executive': name,
+                        'response': speech
+                    })
+    
+    return processed_qa
+
 @api_view(['GET'])
 def qa_analysis(request, symbol, call_id):
     """Analyze Q&A section of an earnings call transcript"""
@@ -1131,10 +1184,26 @@ def qa_analysis(request, symbol, call_id):
             if d.get('session') == 'question_answer'
         ]
 
+        if not qa_section:
+            logger.warning(f"No Q&A section found in transcript {call_id}")
+            return JsonResponse({
+                'response_quality': 0,
+                'questions_addressed': 0,
+                'follow_up_questions': 0
+            })
+
         # Process transcript
         processed_transcript = preprocess_transcript(executives, qa_section)
         
-        # Analyze Q&A using LLM
+        if not processed_transcript:
+            logger.warning(f"No processed Q&A data for transcript {call_id}")
+            return JsonResponse({
+                'response_quality': 0,
+                'questions_addressed': 0,
+                'follow_up_questions': 0
+            })
+
+        # Create the prompt template
         prompt = ChatPromptTemplate.from_template(
             """
             You are an AI assistant evaluating a transcript from an earnings call Q&A session.
@@ -1154,31 +1223,54 @@ def qa_analysis(request, symbol, call_id):
             - Count questions that weren't fully addressed or were deflected in your assessment
             
             Return your analysis in this JSON format:
-            {
+            {{
                 "response_quality": <percentage>,
                 "questions_addressed": <number>,
                 "follow_up_questions": <number>
-            }
+            }}
             """
         )
 
-        # Create the chain
+        # Create and run the chain
         chain = prompt | llm | parser
         
         # Process the transcript
-        analysis = chain.invoke({
-            "processed_transcript": json.dumps(processed_transcript, indent=2)
-        })
-        
-        response = JsonResponse(analysis)
+        try:
+            analysis = chain.invoke({
+                "processed_transcript": json.dumps(processed_transcript, indent=2)
+            })
+            
+            # Ensure the values are in the correct range
+            analysis['response_quality'] = max(0, min(100, analysis.get('response_quality', 0)))
+            analysis['questions_addressed'] = max(0, analysis.get('questions_addressed', 0))
+            analysis['follow_up_questions'] = max(0, analysis.get('follow_up_questions', 0))
+            
+            logger.info(f"Successfully analyzed Q&A for transcript {call_id}")
+            response = JsonResponse(analysis)
+            response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+            response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+            response["Access-Control-Allow-Headers"] = "Content-Type"
+            return response
+            
+        except Exception as e:
+            logger.error(f"Error in LLM analysis: {str(e)}")
+            response = JsonResponse({
+                'response_quality': 0,
+                'questions_addressed': 0,
+                'follow_up_questions': 0
+            })
+            response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+            response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+            response["Access-Control-Allow-Headers"] = "Content-Type"
+            return response
+
+    except Exception as e:
+        logger.error(f"Error analyzing Q&A for {symbol} call {call_id}: {str(e)}", exc_info=True)
+        response = JsonResponse({'error': f'Failed to analyze Q&A: {str(e)}'}, status=500)
         response["Access-Control-Allow-Origin"] = "http://localhost:5173"
         response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
         response["Access-Control-Allow-Headers"] = "Content-Type"
         return response
-
-    except Exception as e:
-        logger.error(f"Error analyzing Q&A for {symbol} call {call_id}: {str(e)}", exc_info=True)
-        return JsonResponse({'error': f'Failed to analyze Q&A: {str(e)}'}, status=500)
 
 def format_currency(value):
     """Format numerical values as currency (T, B, M, K)."""

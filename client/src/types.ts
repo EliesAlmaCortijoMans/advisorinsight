@@ -12,6 +12,7 @@ export interface Company {
   symbol: string;
   name: string;
   status: 'upcoming' | 'ongoing' | 'past';
+  latestTranscriptId?: string;
 }
 
 export interface StockData {

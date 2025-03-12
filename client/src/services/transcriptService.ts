@@ -1,5 +1,5 @@
 // Cache for transcripts
-const transcriptCache = new Map<string, any[]>();
+export const transcriptCache = new Map<string, any[]>();
 
 export const prefetchAllTranscripts = async (symbols: string[]) => {
   try {
