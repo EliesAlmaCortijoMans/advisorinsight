@@ -1338,53 +1338,108 @@ def get_financial_metrics(request, symbol):
     try:
         # Get basic financials
         basic_financials = finnhub_client.company_basic_financials(symbol, 'all')
+        logger.info(f"Raw Finnhub response for {symbol}: {basic_financials}")
         
         # Get company metrics
         metrics = basic_financials.get('metric', {})
+        logger.info(f"Extracted metrics for {symbol}: {metrics}")
         
-        # Get earnings data for the last two quarters
-        earnings_data = []
+        # Calculate the date ranges for latest and previous quarters
         today = date.today()
-        from_date = (today - timedelta(days=180)).strftime('%Y-%m-%d')
-        to_date = today.strftime('%Y-%m-%d')
+        current_quarter = (today.month - 1) // 3 + 1
+        current_year = today.year
         
-        try:
-            earnings = fetch_earnings(from_date, to_date, symbol)
-            earnings_data = sorted(earnings, key=lambda x: x['date'], reverse=True)[:2]
-        except Exception as e:
-            logger.error(f"Error fetching earnings data: {str(e)}")
-            earnings_data = []
+        logger.info(f"Current quarter: {current_quarter}, Current year: {current_year}")
+        
+        # Calculate the start of the current quarter
+        current_quarter_start = date(current_year, 3 * current_quarter - 2, 1)
+        
+        # Calculate the end of the current quarter
+        if current_quarter == 4:
+            current_quarter_end = date(current_year, 12, 31)
+        else:
+            current_quarter_end = date(current_year, 3 * current_quarter, 1) + timedelta(days=32)
+            current_quarter_end = current_quarter_end.replace(day=1) - timedelta(days=1)
+        
+        # Calculate previous quarter dates
+        if current_quarter == 1:
+            previous_quarter_start = date(current_year - 1, 10, 1)
+            previous_quarter_end = date(current_year - 1, 12, 31)
+        else:
+            previous_quarter_start = date(current_year, 3 * (current_quarter - 1) - 2, 1)
+            previous_quarter_end = date(current_year, 3 * (current_quarter - 1), 1) + timedelta(days=32)
+            previous_quarter_end = previous_quarter_end.replace(day=1) - timedelta(days=1)
+        
+        # Get earnings data for both quarters
+        current_quarter_earnings = fetch_earnings(
+            current_quarter_start.strftime('%Y-%m-%d'),
+            current_quarter_end.strftime('%Y-%m-%d'),
+            symbol
+        )
+        logger.info(f"Current quarter earnings data: {current_quarter_earnings}")
+        
+        previous_quarter_earnings = fetch_earnings(
+            previous_quarter_start.strftime('%Y-%m-%d'),
+            previous_quarter_end.strftime('%Y-%m-%d'),
+            symbol
+        )
+        logger.info(f"Previous quarter earnings data: {previous_quarter_earnings}")
+        
+        # Combine and sort earnings data
+        all_earnings = sorted(
+            current_quarter_earnings + previous_quarter_earnings,
+            key=lambda x: x.get('date', ''),
+            reverse=True
+        )
+        logger.info(f"Combined earnings data: {all_earnings}")
+
+        # Get revenue from earnings data
+        current_revenue = all_earnings[0].get('revenueActual') if all_earnings else None
+        previous_revenue = all_earnings[1].get('revenueActual') if len(all_earnings) > 1 else None
+            
+        # Get cash flow data
+        cash_flow = metrics.get('cashFlowPerShareAnnual')  # Use cashFlowPerShareAnnual
+        if cash_flow is not None:
+            # Convert from per share to total cash flow using market cap
+            market_cap = metrics.get('marketCapitalization', 0)
+            shares_outstanding = market_cap / (metrics.get('currentRatioAnnual', 1) or 1)  # Estimate shares outstanding
+            cash_flow = cash_flow * shares_outstanding
+
+        prev_cash_flow = metrics.get('cashFlowPerShareTTM')  # Use cashFlowPerShareTTM
+        if prev_cash_flow is not None:
+            # Convert from per share to total cash flow using market cap
+            market_cap = metrics.get('marketCapitalization', 0)
+            shares_outstanding = market_cap / (metrics.get('currentRatioAnnual', 1) or 1)  # Estimate shares outstanding
+            prev_cash_flow = prev_cash_flow * shares_outstanding
+
+        logger.info(f"Revenue values - Current: {current_revenue}, Previous: {previous_revenue}")
+        logger.info(f"Cash Flow values - Current: {cash_flow}, Previous: {prev_cash_flow}")
 
         # Format the response
         response = {
             'symbol': symbol,
             'financials': {
                 'EPS': {
-                    'actual': format_currency(earnings_data[0].get('epsActual') if earnings_data else None),
-                    'estimate': format_currency(earnings_data[0].get('epsEstimate') if earnings_data else None),
+                    'actual': format_currency(all_earnings[0].get('epsActual') if all_earnings else None),
+                    'estimate': format_currency(all_earnings[0].get('epsEstimate') if all_earnings else None),
                     'change': calculate_eps_vs_expected(
-                        earnings_data[0].get('epsActual') if earnings_data else None,
-                        earnings_data[0].get('epsEstimate') if earnings_data else None
-                    ) if earnings_data else 'N/A'
+                        all_earnings[0].get('epsActual') if all_earnings else None,
+                        all_earnings[0].get('epsEstimate') if all_earnings else None
+                    ) if all_earnings else 'N/A'
                 },
                 'Revenue': {
-                    'actual': format_currency(metrics.get('revenuePerShare') * metrics.get('marketCapitalization', 0) if metrics.get('revenuePerShare') else None),
-                    'estimate': format_currency(earnings_data[0].get('revenueEstimate') if earnings_data else None),
-                    'change': calculate_revenue_yoy(
-                        metrics.get('revenuePerShare') * metrics.get('marketCapitalization', 0) if metrics.get('revenuePerShare') else None,
-                        metrics.get('revenuePerShareTTM', 0) * metrics.get('marketCapitalization', 0) if metrics.get('revenuePerShareTTM') else None
-                    )
+                    'actual': format_currency(current_revenue),
+                    'estimate': format_currency(all_earnings[0].get('revenueEstimate') if all_earnings else None),
+                    'change': calculate_revenue_yoy(current_revenue, previous_revenue)  # Use revenue_yoy for revenue
                 },
                 'Cash Flow': {
-                    'actual': format_currency(metrics.get('freeCashFlowPerShare') * metrics.get('marketCapitalization', 0) if metrics.get('freeCashFlowPerShare') else None),
-                    'change': calculate_cash_flow_qoq(
-                        metrics.get('freeCashFlowPerShare') * metrics.get('marketCapitalization', 0) if metrics.get('freeCashFlowPerShare') else None,
-                        metrics.get('freeCashFlowTTM', 0) * metrics.get('marketCapitalization', 0) if metrics.get('freeCashFlowTTM') else None
-                    )
+                    'actual': format_currency(cash_flow),
+                    'change': calculate_cash_flow_qoq(cash_flow, prev_cash_flow)  # Use cash_flow_qoq for cash flow
                 }
             }
         }
-
+        
+        logger.info(f"Final formatted response: {response}")
         return JsonResponse(response)
 
     except Exception as e:
