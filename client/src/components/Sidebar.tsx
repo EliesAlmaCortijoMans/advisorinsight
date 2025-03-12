@@ -78,7 +78,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   return (
-    <div className={`w-80 flex flex-col h-full transition-colors duration-200 relative ${
+    <div className={`w-80 flex flex-col h-[calc(100vh-4rem)] fixed top-16 transition-colors duration-200 ${
       isDarkMode 
         ? 'bg-gray-900 border-r border-gray-700' 
         : 'bg-white border-r border-gray-200'

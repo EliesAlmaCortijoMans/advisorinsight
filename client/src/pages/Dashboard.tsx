@@ -429,7 +429,7 @@ const Dashboard: React.FC = () => {
   }, [selectedCompany?.symbol, selectedTranscriptId]);
 
   return (
-    <div className={`min-h-screen relative ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+    <div className={`min-h-screen relative ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'} pt-16`}>
       {/* Background Pattern */}
       <div className="absolute inset-0 z-0">
         <div className={`absolute inset-0 ${
@@ -459,15 +459,13 @@ const Dashboard: React.FC = () => {
             isLoading={isLoadingEarnings}
             stockData={sidebarStockData}
           />
-          <main className={`flex-1 min-h-screen shadow-inner ${
+          <main className={`flex-1 min-h-screen ml-80 shadow-inner ${
             isDarkMode 
               ? 'bg-gray-800/95 shadow-2xl shadow-gray-900/50 shadow-inner-xl' 
               : 'bg-gray-50/95'
           }`}>
-            <div className={`container mx-auto px-4 py-8 ${
-              isDarkMode ? 'text-gray-100' : 'text-gray-900'
-            }`}>
-              <div className="mb-8">
+            <div className={`sticky top-16 z-20 bg-inherit shadow-md ${isDarkMode ? 'shadow-gray-900/50' : 'shadow-gray-200/50'}`}>
+              <div className="container mx-auto px-4 py-4">
                 <CompanyHeader 
                   company={selectedCompany?.name || ''}
                   currentPrice={stockData?.price ?? null}
@@ -477,6 +475,10 @@ const Dashboard: React.FC = () => {
                   isLoading={isLoadingStockPrice}
                 />
               </div>
+            </div>
+            <div className={`container mx-auto px-4 py-6 mt-4 ${
+              isDarkMode ? 'text-gray-100' : 'text-gray-900'
+            }`}>
               {selectedCompany ? (
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
