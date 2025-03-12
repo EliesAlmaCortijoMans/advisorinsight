@@ -11,4 +11,6 @@ urlpatterns = [
     path('earnings-summary/<str:symbol>/<str:call_id>/', views.get_earnings_call_summary, name='earnings-summary'),
     path('market-impact/medium-term/<str:symbol>/', views.get_medium_term_impact, name='medium_term_impact'),
     path('market-impact/long-term/<str:symbol>/', views.get_long_term_impact, name='long_term_impact'),
+    path('news-sentiment/', views.news_sentiment, name='news-sentiment'),
+    path('qa-analysis/<str:symbol>/<str:call_id>/', views.qa_analysis, name='qa-analysis'),
 ] 

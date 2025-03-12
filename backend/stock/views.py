@@ -19,6 +19,8 @@ from openai import OpenAI
 import finnhub
 from dotenv import load_dotenv
 import random
+from langchain.prompts import ChatPromptTemplate
+from langchain.chains.llm import LLMChain
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -1068,3 +1070,112 @@ def get_long_term_impact(request, symbol):
     except Exception as e:
         logger.error(f"Error in get_long_term_impact: {str(e)}")
         return Response({'error': str(e)}, status=500)
+
+@api_view(['GET'])
+def news_sentiment(request):
+    symbol = request.GET.get('symbol')
+    if not symbol:
+        return JsonResponse({'error': 'Symbol is required'}, status=400)
+
+    try:
+        logger.info(f"Fetching news sentiment for symbol: {symbol}")
+        
+        if not settings.FINNHUB_API_KEY:
+            logger.error("FINNHUB_API_KEY not found in settings")
+            return JsonResponse({'error': 'Finnhub API key not configured'}, status=500)
+            
+        logger.info(f"Using Finnhub API key: {settings.FINNHUB_API_KEY[:10]}...")
+        
+        # Get news sentiment data from Finnhub
+        sentiment = finnhub_client.news_sentiment(symbol)
+        logger.info(f"Raw Finnhub response: {sentiment}")
+        
+        # Process and format the data
+        response_data = {
+            'articlesInLastWeek': sentiment.get('buzz', {}).get('articlesInLastWeek', 0),
+            'companyNewsScore': sentiment.get('companyNewsScore', 0),
+            'bearishPercent': sentiment.get('sentiment', {}).get('bearishPercent', 0),
+            'bullishPercent': sentiment.get('sentiment', {}).get('bullishPercent', 0)
+        }
+        
+        response = JsonResponse(response_data)
+        response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+        response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error fetching news sentiment for {symbol}: {str(e)}", exc_info=True)
+        return JsonResponse({'error': f'Failed to fetch news sentiment: {str(e)}'}, status=500)
+
+@api_view(['GET'])
+def qa_analysis(request, symbol, call_id):
+    """Analyze Q&A section of an earnings call transcript"""
+    try:
+        if not settings.FINNHUB_API_KEY:
+            logger.error("FINNHUB_API_KEY not found in settings")
+            return JsonResponse({'error': 'Finnhub API key not configured'}, status=500)
+
+        # Get transcript from Finnhub
+        transcript = finnhub_client.transcripts(call_id)
+        if not transcript:
+            return JsonResponse({'error': 'Transcript not found'}, status=404)
+
+        # Get executives list
+        executives = [d['name'] for d in transcript.get('participant', []) if d.get('role') == 'executive']
+        
+        # Get Q&A section
+        qa_section = [
+            {'name': d['name'], 'speech': d['speech']} 
+            for d in transcript.get('transcript', []) 
+            if d.get('session') == 'question_answer'
+        ]
+
+        # Process transcript
+        processed_transcript = preprocess_transcript(executives, qa_section)
+        
+        # Analyze Q&A using LLM
+        prompt = ChatPromptTemplate.from_template(
+            """
+            You are an AI assistant evaluating a transcript from an earnings call Q&A session.
+            The transcript is structured as a sequence of questions and answers.
+            
+            Transcript:
+            {processed_transcript}
+            
+            Analyze this transcript and provide:
+            1. Response Quality: A percentage score (0-100%) indicating how well the responses addressed the questions
+            2. Questions Addressed: Number of unique questions that received substantive answers
+            3. Follow-up Questions: Number of follow-up questions asked by analysts
+            
+            Be precise in your counting:
+            - A question is any interrogative statement from an analyst
+            - A follow-up question is explicitly mentioned as a follow-up or asked after an initial question by the same person
+            - Count questions that weren't fully addressed or were deflected in your assessment
+            
+            Return your analysis in this JSON format:
+            {
+                "response_quality": <percentage>,
+                "questions_addressed": <number>,
+                "follow_up_questions": <number>
+            }
+            """
+        )
+
+        # Create the chain
+        chain = prompt | llm | parser
+        
+        # Process the transcript
+        analysis = chain.invoke({
+            "processed_transcript": json.dumps(processed_transcript, indent=2)
+        })
+        
+        response = JsonResponse(analysis)
+        response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+        response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+
+    except Exception as e:
+        logger.error(f"Error analyzing Q&A for {symbol} call {call_id}: {str(e)}", exc_info=True)
+        return JsonResponse({'error': f'Failed to analyze Q&A: {str(e)}'}, status=500)
