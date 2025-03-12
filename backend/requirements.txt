@@ -21,3 +21,4 @@ vosk
 langchain
 langchain-community
 
+pandas

@@ -23,6 +23,7 @@ from langchain.prompts import ChatPromptTemplate
 from langchain.chains.llm import LLMChain
 from langchain.chat_models import ChatOpenAI
 from langchain.schema import BaseOutputParser
+from .earnings_analyzer import EarningsCallAnalyzer
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -1389,3 +1390,38 @@ def get_financial_metrics(request, symbol):
     except Exception as e:
         logger.error(f"Error fetching financial metrics for {symbol}: {str(e)}")
         return JsonResponse({'error': str(e)}, status=500)
+
+@api_view(['GET'])
+def earnings_call_sentiment(request):
+    symbol = request.GET.get('symbol')
+    status = request.GET.get('status', 'past')  # 'present' or 'past'
+    
+    if not symbol:
+        return JsonResponse({'error': 'Symbol is required'}, status=400)
+
+    try:
+        analyzer = EarningsCallAnalyzer()
+        analysis = analyzer.analyze_text(symbol, status)
+        
+        if 'error' in analysis:
+            return JsonResponse({'error': analysis['error']}, status=500)
+            
+        response = JsonResponse({
+            'data': {
+                'sentiment': analysis.get('sentiment', 'Neutral'),
+                'positive_keywords_count': analysis.get('positive_keywords_count', 0),
+                'negative_keywords_count': analysis.get('negative_keywords_count', 0),
+                'hesitation_markers_count': analysis.get('hesitation_markers_count', 0)
+            },
+            'symbol': symbol,
+            'is_mock': False
+        })
+        
+        response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+        response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error analyzing earnings call sentiment for {symbol}: {str(e)}", exc_info=True)
+        return JsonResponse({'error': f'Failed to analyze earnings call sentiment: {str(e)}'}, status=500)
