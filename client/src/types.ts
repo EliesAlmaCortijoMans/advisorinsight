@@ -13,6 +13,7 @@ export interface Company {
   name: string;
   status: 'upcoming' | 'ongoing' | 'past';
   latestTranscriptId?: string;
+  isOngoing?: boolean;
 }
 
 export interface StockData {
