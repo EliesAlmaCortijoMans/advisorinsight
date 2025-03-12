@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart, Bar, Legend } from 'recharts';
 import { ArrowUpRight, ArrowDownRight, Loader2, TrendingUp, TrendingDown } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useSelectedCompany } from '../../contexts/CompanyContext';
@@ -18,6 +18,14 @@ interface MarketImpactData {
     from: string;
     to: string;
   };
+  candlestick_data: Array<{
+    time: string;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+  }>;
 }
 
 interface MediumTermData {
@@ -433,7 +441,7 @@ const MarketImpact: React.FC = () => {
       ) : error ? (
         <div className="text-center text-red-600 p-4">{error}</div>
       ) : timeframe === 'short' && marketData ? (
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6">
           {/* Short term content */}
           <div className={`rounded-lg border p-6 ${
             isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'
@@ -457,53 +465,96 @@ const MarketImpact: React.FC = () => {
                   {marketData.intraday_range.spread_percent.toFixed(1)}% Spread
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className={`p-3 rounded-lg ${
-                  isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
+              
+              <div className={`p-3 rounded-lg ${
+                isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
+              }`}>
+                <div className={`text-sm ${
+                  isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                }`}>Volume</div>
+                <div className={`font-medium ${
+                  isDarkMode ? 'text-gray-200' : 'text-gray-900'
                 }`}>
-                  <div className={`text-sm ${
-                    isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                  }`}>Volume</div>
-                  <div className={`font-medium ${
-                    isDarkMode ? 'text-gray-200' : 'text-gray-900'
-                  }`}>
-                    {marketData.volume.total}{marketData.volume.unit} shares
-                  </div>
+                  {marketData.volume.total}{marketData.volume.unit} shares
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Options Activity - Placeholder */}
+          {/* Intraday Range Chart */}
           <div className={`rounded-lg border p-6 ${
             isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'
           }`}>
             <h4 className={`text-lg font-medium mb-4 ${
               isDarkMode ? 'text-gray-200' : 'text-gray-900'
-            }`}>Options Activity</h4>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className={`p-4 rounded-lg ${
-                  isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
-                }`}>
-                  <div className={`text-sm ${
-                    isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                  }`}>Call Volume</div>
-                  <div className={`text-xl font-bold ${
-                    isDarkMode ? 'text-gray-200' : 'text-gray-900'
-                  }`}>Loading...</div>
-                </div>
-                <div className={`p-4 rounded-lg ${
-                  isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
-                }`}>
-                  <div className={`text-sm ${
-                    isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                  }`}>Put Volume</div>
-                  <div className={`text-xl font-bold ${
-                    isDarkMode ? 'text-gray-200' : 'text-gray-900'
-                  }`}>Loading...</div>
-                </div>
-              </div>
+            }`}>Intraday Range Chart</h4>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={marketData.candlestick_data}>
+                  <XAxis 
+                    dataKey="time"
+                    scale="band"
+                    stroke={isDarkMode ? '#9CA3AF' : '#4B5563'}
+                  />
+                  {/* Price YAxis */}
+                  <YAxis 
+                    yAxisId="price"
+                    orientation="left"
+                    stroke={isDarkMode ? '#3B82F6' : '#2563EB'}
+                    domain={['dataMin', 'dataMax']}
+                    tickFormatter={(value) => `$${value}`}
+                  />
+                  {/* Volume YAxis */}
+                  <YAxis 
+                    yAxisId="volume"
+                    orientation="right"
+                    stroke={isDarkMode ? '#10B981' : '#059669'}
+                    tickFormatter={(value) => formatValue(value)}
+                  />
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <div className={`p-3 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'} border shadow-lg`}>
+                            <p className="text-sm font-medium">{data.time}</p>
+                            <div className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                              <p className="text-blue-500">Close: ${data.close}</p>
+                              <p className="text-emerald-500">Volume: {formatValue(data.volume)}</p>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <CartesianGrid 
+                    strokeDasharray="3 3" 
+                    stroke={isDarkMode ? '#374151' : '#E5E7EB'} 
+                  />
+                  <Legend />
+                  {/* Close price line */}
+                  <Line
+                    type="monotone"
+                    dataKey="close"
+                    name="Close Price"
+                    stroke={isDarkMode ? '#3B82F6' : '#2563EB'}
+                    strokeWidth={2}
+                    dot={false}
+                    yAxisId="price"
+                  />
+                  {/* Volume line */}
+                  <Line
+                    type="monotone"
+                    dataKey="volume"
+                    name="Volume"
+                    stroke={isDarkMode ? '#10B981' : '#059669'}
+                    strokeWidth={2}
+                    dot={false}
+                    yAxisId="volume"
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
             </div>
           </div>
         </div>

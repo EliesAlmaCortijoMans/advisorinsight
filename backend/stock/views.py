@@ -651,11 +651,11 @@ def get_market_impact(request, symbol):
         logger.info(f"Fetching stock candle data for {symbol} from {from_time} to {to_time}")
         logger.info(f"Using Finnhub API key: {settings.FINNHUB_API_KEY[:5]}...")
 
-        # Get stock candle data from Finnhub
+        # Get stock candle data from Finnhub with hourly resolution
         try:
             candle_data = finnhub_client.stock_candles(
                 symbol=symbol,
-                resolution='1',  # 1-minute resolution
+                resolution='60',  # 1-hour resolution
                 _from=from_time,
                 to=to_time
             )
@@ -692,6 +692,18 @@ def get_market_impact(request, symbol):
         total_volume = sum(candle_data['v'])
         spread_percent = ((high_price - low_price) / low_price) * 100
 
+        # Format candlestick data
+        candlestick_data = []
+        for i in range(len(candle_data['t'])):
+            candlestick_data.append({
+                'time': datetime.fromtimestamp(candle_data['t'][i]).strftime('%H:%M'),
+                'open': round(candle_data['o'][i], 2),
+                'high': round(candle_data['h'][i], 2),
+                'low': round(candle_data['l'][i], 2),
+                'close': round(candle_data['c'][i], 2),
+                'volume': candle_data['v'][i]
+            })
+
         # Format response
         response_data = {
             'intraday_range': {
@@ -700,21 +712,14 @@ def get_market_impact(request, symbol):
                 'spread_percent': round(spread_percent, 1)
             },
             'volume': {
-                'total': f"{total_volume / 1_000:.0f}",  # Convert to millions
+                'total': f"{total_volume / 1_000:.0f}",  # Convert to thousands
                 'unit': 'K'
             },
             'time_range': {
                 'from': datetime.fromtimestamp(from_time).isoformat(),
                 'to': datetime.fromtimestamp(to_time).isoformat()
             },
-            'candles': {
-                'timestamps': candle_data['t'],
-                'high': candle_data['h'],
-                'low': candle_data['l'],
-                'open': candle_data['o'],
-                'close': candle_data['c'],
-                'volume': candle_data['v']
-            }
+            'candlestick_data': candlestick_data
         }
 
         response = JsonResponse(response_data)
