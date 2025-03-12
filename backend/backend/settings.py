@@ -136,7 +136,7 @@ ASGI_APPLICATION = 'backend.asgi.application'
 CORS_ALLOW_ALL_ORIGINS = True  # For development only
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
+    "http://localhost:5173",  # Vite dev server
 ]
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^http://localhost:[0-9]+$",

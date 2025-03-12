@@ -1179,3 +1179,121 @@ def qa_analysis(request, symbol, call_id):
     except Exception as e:
         logger.error(f"Error analyzing Q&A for {symbol} call {call_id}: {str(e)}", exc_info=True)
         return JsonResponse({'error': f'Failed to analyze Q&A: {str(e)}'}, status=500)
+
+def format_currency(value):
+    """Format numerical values as currency (T, B, M, K)."""
+    if value is None:
+        return "N/A"
+
+    try:
+        value = float(value)
+    except (ValueError, TypeError):
+        return "N/A"
+
+    if abs(value) >= 1_000_000_000_000:
+        return f"${value / 1_000_000_000_000:.1f}T"
+    elif abs(value) >= 1_000_000_000:
+        return f"${value / 1_000_000_000:.1f}B"
+    elif abs(value) >= 1_000_000:
+        return f"${value / 1_000_000:.1f}M"
+    elif abs(value) >= 1_000:
+        return f"${value / 1_000:.1f}K"
+    return f"${value:.2f}"
+
+def calculate_eps_vs_expected(eps_actual, eps_estimate):
+    """Calculate the EPS difference compared to expected."""
+    if eps_actual is not None and eps_estimate is not None:
+        try:
+            eps_actual = float(eps_actual)
+            eps_estimate = float(eps_estimate)
+            eps_percent_diff = ((eps_actual - eps_estimate) / abs(eps_estimate)) * 100
+            direction = "↑" if eps_percent_diff >= 0 else "↓"
+            return f"{direction} {abs(round(eps_percent_diff, 1))}% vs Expected"
+        except (ValueError, ZeroDivisionError):
+            return "N/A"
+    return "N/A"
+
+def calculate_revenue_yoy(current_revenue, previous_revenue):
+    """Calculate Year-over-Year (YoY) revenue change."""
+    if current_revenue is not None and previous_revenue is not None:
+        try:
+            current_revenue = float(current_revenue)
+            previous_revenue = float(previous_revenue)
+            revenue_percent_change = ((current_revenue - previous_revenue) / abs(previous_revenue)) * 100
+            direction = "↑" if revenue_percent_change >= 0 else "↓"
+            return f"{direction} {abs(round(revenue_percent_change, 1))}% YoY"
+        except (ValueError, ZeroDivisionError):
+            return "N/A"
+    return "N/A"
+
+def calculate_cash_flow_qoq(current_cf, previous_cf):
+    """Calculate Quarter-over-Quarter (QoQ) cash flow change."""
+    if current_cf is not None and previous_cf is not None:
+        try:
+            current_cf = float(current_cf)
+            previous_cf = float(previous_cf)
+            cf_percent_change = ((current_cf - previous_cf) / abs(previous_cf)) * 100
+            direction = "↑" if cf_percent_change >= 0 else "↓"
+            return f"{direction} {abs(round(cf_percent_change, 1))}% QoQ"
+        except (ValueError, ZeroDivisionError):
+            return "N/A"
+    return "N/A"
+
+@api_view(['GET'])
+def get_financial_metrics(request, symbol):
+    """Fetch financial metrics for a given company symbol."""
+    try:
+        # Get basic financials
+        basic_financials = finnhub_client.company_basic_financials(symbol, 'all')
+        
+        # Get company metrics
+        metrics = basic_financials.get('metric', {})
+        
+        # Get earnings data for the last two quarters
+        earnings_data = []
+        today = date.today()
+        from_date = (today - timedelta(days=180)).strftime('%Y-%m-%d')
+        to_date = today.strftime('%Y-%m-%d')
+        
+        try:
+            earnings = fetch_earnings(from_date, to_date, symbol)
+            earnings_data = sorted(earnings, key=lambda x: x['date'], reverse=True)[:2]
+        except Exception as e:
+            logger.error(f"Error fetching earnings data: {str(e)}")
+            earnings_data = []
+
+        # Format the response
+        response = {
+            'symbol': symbol,
+            'financials': {
+                'EPS': {
+                    'actual': format_currency(earnings_data[0].get('epsActual') if earnings_data else None),
+                    'estimate': format_currency(earnings_data[0].get('epsEstimate') if earnings_data else None),
+                    'change': calculate_eps_vs_expected(
+                        earnings_data[0].get('epsActual') if earnings_data else None,
+                        earnings_data[0].get('epsEstimate') if earnings_data else None
+                    ) if earnings_data else 'N/A'
+                },
+                'Revenue': {
+                    'actual': format_currency(metrics.get('revenuePerShare') * metrics.get('marketCapitalization', 0) if metrics.get('revenuePerShare') else None),
+                    'estimate': format_currency(earnings_data[0].get('revenueEstimate') if earnings_data else None),
+                    'change': calculate_revenue_yoy(
+                        metrics.get('revenuePerShare') * metrics.get('marketCapitalization', 0) if metrics.get('revenuePerShare') else None,
+                        metrics.get('revenuePerShareTTM', 0) * metrics.get('marketCapitalization', 0) if metrics.get('revenuePerShareTTM') else None
+                    )
+                },
+                'Cash Flow': {
+                    'actual': format_currency(metrics.get('freeCashFlowPerShare') * metrics.get('marketCapitalization', 0) if metrics.get('freeCashFlowPerShare') else None),
+                    'change': calculate_cash_flow_qoq(
+                        metrics.get('freeCashFlowPerShare') * metrics.get('marketCapitalization', 0) if metrics.get('freeCashFlowPerShare') else None,
+                        metrics.get('freeCashFlowTTM', 0) * metrics.get('marketCapitalization', 0) if metrics.get('freeCashFlowTTM') else None
+                    )
+                }
+            }
+        }
+
+        return JsonResponse(response)
+
+    except Exception as e:
+        logger.error(f"Error fetching financial metrics for {symbol}: {str(e)}")
+        return JsonResponse({'error': str(e)}, status=500)
