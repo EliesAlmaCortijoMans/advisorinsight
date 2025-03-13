@@ -20,10 +20,10 @@ const AnalysisTabs: React.FC<AnalysisTabsProps> = ({ activeTab, onTabChange }) =
 
   const tabs: TabConfig[] = [
     {
-      id: 'sentiment',
-      label: 'Sentiment Analysis',
-      icon: <Activity className="w-4 h-4" />,
-      description: 'Analyze call sentiment and key topics'
+      id: 'market-impact',
+      label: 'Market Impact',
+      icon: <TrendingUp className="w-4 h-4" />,
+      description: 'Monitor market response and trends'
     },
     {
       id: 'financial',
@@ -38,10 +38,10 @@ const AnalysisTabs: React.FC<AnalysisTabsProps> = ({ activeTab, onTabChange }) =
       description: 'Track investor responses and questions'
     },
     {
-      id: 'market-impact',
-      label: 'Market Impact',
-      icon: <TrendingUp className="w-4 h-4" />,
-      description: 'Monitor market response and trends'
+      id: 'sentiment',
+      label: 'Sentiment Analysis',
+      icon: <Activity className="w-4 h-4" />,
+      description: 'Analyze call sentiment and key topics'
     },
     {
       id: 'news',

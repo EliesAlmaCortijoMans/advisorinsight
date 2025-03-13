@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { 
   TrendingUp, 
@@ -11,8 +11,10 @@ import {
   AlertTriangle,
   ArrowUpRight,
   ArrowDownRight,
-  FileText
+  FileText,
+  Loader2
 } from 'lucide-react';
+import { fetchKeyHighlights, KeyHighlightsResponse } from '../services/keyHighlightsService';
 
 interface CallSummaryPanelProps {
   call: {
@@ -24,7 +26,6 @@ interface CallSummaryPanelProps {
     actualEPS?: number;
     expectedEPS?: number;
     revenue?: number;
-    keyHighlights?: string[];
     guidance?: {
       revenue?: number;
       eps?: number;
@@ -43,10 +44,81 @@ const CallSummaryPanel: React.FC<CallSummaryPanelProps> = ({
   onViewFullSummary
 }) => {
   const { isDarkMode } = useTheme();
+  const [keyHighlights, setKeyHighlights] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const formatPercentage = (value: number) => {
-    const sign = value >= 0 ? '+' : '';
-    return `${sign}${value.toFixed(1)}%`;
+  useEffect(() => {
+    const loadKeyHighlights = async () => {
+      if (!call.symbol) return;
+      
+      setIsLoading(true);
+      setError(null);
+      try {
+        const data = await fetchKeyHighlights(call.symbol);
+        setKeyHighlights(data.responses);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load key highlights');
+        console.error('Error loading key highlights:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadKeyHighlights();
+  }, [call.symbol]);
+
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center py-8 space-y-4">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            Loading key highlights...
+          </p>
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <div className="flex flex-col items-center justify-center py-8 space-y-4">
+          <AlertTriangle className="w-8 h-8 text-red-500" />
+          <p className="text-center text-red-600">{error}</p>
+        </div>
+      );
+    }
+
+    if (!keyHighlights.length) {
+      return (
+        <div className="flex flex-col items-center justify-center py-8 space-y-4">
+          <FileText className={`w-8 h-8 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} />
+          <p className={`text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            No key highlights available for this company
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <ul className="space-y-2">
+        {keyHighlights.map((highlight, index) => (
+          <li 
+            key={index} 
+            className={`flex items-start p-2 rounded-lg transition-all duration-200 ${
+              isDarkMode ? 'hover:bg-gray-800/50' : 'hover:bg-gray-100/80'
+            }`}
+          >
+            <span className={`flex-shrink-0 w-2 h-2 mt-1.5 rounded-full mr-3 ${
+              isDarkMode ? 'bg-indigo-500' : 'bg-indigo-600'
+            }`} />
+            <span className={`${
+              isDarkMode ? 'text-gray-300' : 'text-gray-700'
+            }`}>{highlight}</span>
+          </li>
+        ))}
+      </ul>
+    );
   };
 
   return (
@@ -78,79 +150,7 @@ const CallSummaryPanel: React.FC<CallSummaryPanelProps> = ({
             <div className={`p-6 rounded-xl ${
               isDarkMode ? 'bg-gray-900/30' : 'bg-gray-50'
             }`}>
-              {/* Highlights List */}
-              <ul className="space-y-2">
-                <li className={`flex items-start p-2 rounded-lg transition-all duration-200 ${
-                  isDarkMode ? 'hover:bg-gray-800/50' : 'hover:bg-gray-100/80'
-                }`}>
-                  <span className={`flex-shrink-0 w-2 h-2 mt-1.5 rounded-full mr-3 ${
-                    isDarkMode ? 'bg-indigo-500' : 'bg-indigo-600'
-                  }`} />
-                  <span className={`${
-                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                  }`}>Significant increase in overall sales trends across 2022, 2023, and 2024.</span>
-                </li>
-                <li className={`flex items-start p-2 rounded-lg transition-all duration-200 ${
-                  isDarkMode ? 'hover:bg-gray-800/50' : 'hover:bg-gray-100/80'
-                }`}>
-                  <span className={`flex-shrink-0 w-2 h-2 mt-1.5 rounded-full mr-3 ${
-                    isDarkMode ? 'bg-indigo-500' : 'bg-indigo-600'
-                  }`} />
-                  <span className={`${
-                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                  }`}>Notable shifts in product categories such as iPhones, iPads, Macs, and wearables.</span>
-                </li>
-                <li className={`flex items-start p-2 rounded-lg transition-all duration-200 ${
-                  isDarkMode ? 'hover:bg-gray-800/50' : 'hover:bg-gray-100/80'
-                }`}>
-                  <span className={`flex-shrink-0 w-2 h-2 mt-1.5 rounded-full mr-3 ${
-                    isDarkMode ? 'bg-indigo-500' : 'bg-indigo-600'
-                  }`} />
-                  <span className={`${
-                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                  }`}>Key growth in Apple's service offerings, including iCloud, Apple Music, and App Store.</span>
-                </li>
-                <li className={`flex items-start p-2 rounded-lg transition-all duration-200 ${
-                  isDarkMode ? 'hover:bg-gray-800/50' : 'hover:bg-gray-100/80'
-                }`}>
-                  <span className={`flex-shrink-0 w-2 h-2 mt-1.5 rounded-full mr-3 ${
-                    isDarkMode ? 'bg-indigo-500' : 'bg-indigo-600'
-                  }`} />
-                  <span className={`${
-                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                  }`}>Standout services contributing to revenue spikes.</span>
-                </li>
-                <li className={`flex items-start p-2 rounded-lg transition-all duration-200 ${
-                  isDarkMode ? 'hover:bg-gray-800/50' : 'hover:bg-gray-100/80'
-                }`}>
-                  <span className={`flex-shrink-0 w-2 h-2 mt-1.5 rounded-full mr-3 ${
-                    isDarkMode ? 'bg-indigo-500' : 'bg-indigo-600'
-                  }`} />
-                  <span className={`${
-                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                  }`}>Identification of Apple's most successful or underperforming product/service based on 10-K filings.</span>
-                </li>
-                <li className={`flex items-start p-2 rounded-lg transition-all duration-200 ${
-                  isDarkMode ? 'hover:bg-gray-800/50' : 'hover:bg-gray-100/80'
-                }`}>
-                  <span className={`flex-shrink-0 w-2 h-2 mt-1.5 rounded-full mr-3 ${
-                    isDarkMode ? 'bg-indigo-500' : 'bg-indigo-600'
-                  }`} />
-                  <span className={`${
-                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                  }`}>Significant sales growth or decline in key regions (e.g., Americas, Europe, Greater China).</span>
-                </li>
-                <li className={`flex items-start p-2 rounded-lg transition-all duration-200 ${
-                  isDarkMode ? 'hover:bg-gray-800/50' : 'hover:bg-gray-100/80'
-                }`}>
-                  <span className={`flex-shrink-0 w-2 h-2 mt-1.5 rounded-full mr-3 ${
-                    isDarkMode ? 'bg-indigo-500' : 'bg-indigo-600'
-                  }`} />
-                  <span className={`${
-                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                  }`}>Emerging markets or regions showing notable performance shifts.</span>
-                </li>
-              </ul>
+              {renderContent()}
             </div>
           </div>
         </div>

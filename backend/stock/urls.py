@@ -15,4 +15,5 @@ urlpatterns = [
     path('qa-analysis/<str:symbol>/<str:call_id>/', views.qa_analysis, name='qa-analysis'),
     path('financial-metrics/<str:symbol>/', views.get_financial_metrics, name='financial-metrics'),
     path('earnings-call-sentiment/', views.earnings_call_sentiment, name='earnings-call-sentiment'),
+    path('key-highlights/', views.get_key_highlights, name='key-highlights'),
 ] 

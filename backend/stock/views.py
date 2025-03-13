@@ -24,6 +24,11 @@ from langchain.chains.llm import LLMChain
 from langchain.chat_models import ChatOpenAI
 from langchain.schema import BaseOutputParser
 from .earnings_analyzer import EarningsCallAnalyzer
+import glob
+from langchain_community.vectorstores import FAISS
+from langchain_openai import OpenAIEmbeddings
+from langchain_community.document_loaders import PyPDFLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -100,6 +105,27 @@ TIME_MAPPING = {
     "past": "amc",  # After Market Close
     "upcoming": "bmo"  # Before Market Open
 }
+
+# Constants for RAG
+QUESTIONS = [
+    "What are the primary financial highlights from the filing?",
+    "Which business segments, products, or services are most influential?",
+    "What key regional or market trends are observed?",
+    "What operational achievements or challenges are highlighted?",
+    "How have expenses and cost structures changed over the period?",
+    "What significant risks or uncertainties are identified?",
+    "Which strategic initiatives or investments are noted?",
+    "How is the company's competitive position and market landscape described?",
+    "What trends in efficiency or productivity are reported?",
+    "What forward-looking guidance or growth outlook does management provide?"
+]
+
+TEMPERATURE = 0
+CHUNK_SIZE = 1000
+OVERLAP_SIZE = 200
+OPENAI_MODEL = "gpt-3.5-turbo"
+INDEX_DIR = "vector_dbs"
+PDF_DIR = "data"  # Relative to project root
 
 def get_transcript(request, company_symbol, transcript_id):
     try:
@@ -1467,3 +1493,144 @@ def earnings_call_sentiment(request):
     except Exception as e:
         logger.error(f"Error analyzing earnings call sentiment for {symbol}: {str(e)}", exc_info=True)
         return JsonResponse({'error': f'Failed to analyze earnings call sentiment: {str(e)}'}, status=500)
+
+def find_pdf_file(symbol):
+    """Find the correct PDF file matching the stock symbol."""
+    symbol = symbol.upper()
+    base_dir = Path(__file__).resolve().parent.parent
+    pdf_pattern = os.path.join(base_dir, PDF_DIR, symbol, "sec_filing", f"{symbol}.pdf")
+    matching_files = glob.glob(pdf_pattern)
+    if matching_files:
+        return matching_files[0]
+    else:
+        raise FileNotFoundError(f"File not found for symbol: {symbol}. Make sure file exists.")
+
+def create_faiss_index(symbol):
+    """Creates a FAISS index for a given stock symbol's financial filing PDF."""
+    try:
+        pdf_path = find_pdf_file(symbol)
+        loader = PyPDFLoader(pdf_path)
+        documents = loader.load()
+
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=CHUNK_SIZE, chunk_overlap=OVERLAP_SIZE)
+        chunks = text_splitter.split_documents(documents)
+
+        logger.info(f"Creating FAISS index for {symbol}...")
+        embeddings = OpenAIEmbeddings(openai_api_key=settings.OPENAI_API_KEY)
+        vectorstore = FAISS.from_documents(chunks, embeddings)
+
+        base_dir = Path(__file__).resolve().parent.parent
+        index_file = os.path.join(base_dir, INDEX_DIR, f"{symbol}_faiss.index")
+        os.makedirs(os.path.join(base_dir, INDEX_DIR), exist_ok=True)
+        vectorstore.save_local(index_file)
+
+        return vectorstore
+    except Exception as e:
+        logger.error(f"Error creating FAISS index for {symbol}: {e}")
+        raise
+
+def load_faiss_index(symbol):
+    """Loads an existing FAISS index if available."""
+    base_dir = Path(__file__).resolve().parent.parent
+    index_dir = os.path.join(base_dir, INDEX_DIR, f"{symbol}_faiss.index")
+
+    if os.path.exists(os.path.join(index_dir, "index.faiss")) and os.path.exists(os.path.join(index_dir, "index.pkl")):
+        logger.info(f"Loading FAISS index for {symbol} from {index_dir}...")
+        return FAISS.load_local(
+            index_dir,
+            OpenAIEmbeddings(openai_api_key=settings.OPENAI_API_KEY),
+            allow_dangerous_deserialization=True
+        )
+
+    logger.warning(f"FAISS index for {symbol} not found at {index_dir}.")
+    return None
+
+def search_faiss(index, query):
+    """Retrieves relevant document chunks from FAISS index."""
+    retriever_chain = index.as_retriever()
+    return retriever_chain.invoke(query)
+
+def generate_response(context, question):
+    """Generates response using GPT model."""
+    chat_model = ChatOpenAI(
+        model_name=OPENAI_MODEL,
+        openai_api_key=settings.OPENAI_API_KEY,
+        temperature=0.3
+    )
+    MESSAGES = [
+        {
+            "role": "system", "content": """
+            You are a financial expert for SEC 10K/10Q filings.
+            Answer in a single crisp line (under 20 words) with key stats using semicolons. 
+            If context lacks the answer, reply: 'I cannot answer this question based on the provided context.'
+
+            **Examples:**
+            {
+            "question": "What are the major changes in revenue for 2024?"
+            "answer": "Revenue up 5% YoY to $10.2B; North America strong."
+            },
+            {
+            "question": "What risks were highlighted?"
+            "answer": "Regulatory, trade, cybersecurity risks; growth targets unmet."
+            }
+            """
+        },
+        {"role": "user", "content": f"Context: {context}\nQuestion: {question}"}
+    ]
+    return chat_model.invoke(MESSAGES).content
+
+@api_view(['GET'])
+def get_key_highlights(request):
+    """Get key highlights from SEC filings using RAG."""
+    symbol = request.GET.get('symbol')
+    if not symbol:
+        return JsonResponse({'error': 'Symbol is required'}, status=400)
+
+    try:
+        logger.info(f"Fetching key highlights for symbol: {symbol}")
+        
+        # Load or create FAISS index
+        index = load_faiss_index(symbol)
+        if index is None:
+            logger.info(f"No FAISS index found for {symbol}, creating new index...")
+            index = create_faiss_index(symbol)
+
+        # Get responses for each question
+        responses = []
+        for question in QUESTIONS:
+            try:
+                context = search_faiss(index, question)
+                answer = generate_response(context, question)
+                if answer and not answer.startswith('I cannot answer'):
+                    responses.append(answer)
+            except Exception as e:
+                logger.error(f"Error processing question '{question}' for {symbol}: {e}")
+                continue
+        
+        if not responses:
+            logger.warning(f"No valid highlights found for {symbol}")
+            return JsonResponse({
+                'responses': [],
+                'message': 'No key highlights found for this company'
+            })
+        
+        # Add CORS headers
+        response = JsonResponse({
+            'responses': responses,
+            'message': 'Successfully retrieved key highlights'
+        })
+        response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+        response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+        
+    except FileNotFoundError as e:
+        logger.error(f"PDF file not found for {symbol}: {e}")
+        return JsonResponse({
+            'error': f'No SEC filing found for {symbol}'
+        }, status=404)
+    except Exception as e:
+        logger.error(f"Error fetching key highlights for {symbol}: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'error': f'Failed to fetch key highlights: {str(e)}'
+        }, status=500)
