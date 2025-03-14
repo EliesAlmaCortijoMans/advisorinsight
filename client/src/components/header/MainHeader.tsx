@@ -76,7 +76,7 @@ const MainHeader: React.FC<MainHeaderProps> = ({ isMarketOpen, nextMarketOpen })
               }}
             />
             <span className={`ml-3 text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'} transition-colors duration-200`}>
-              Earning Call Advisor
+              ADVISOR INSIGHT
             </span>
           </div>
           <div className={`px-2 py-1 rounded-full text-xs font-medium flex items-center ${

@@ -26,6 +26,7 @@ interface CallSummaryPanelProps {
     actualEPS?: number;
     expectedEPS?: number;
     revenue?: number;
+    keyHighlights?: string[];
     guidance?: {
       revenue?: number;
       eps?: number;
