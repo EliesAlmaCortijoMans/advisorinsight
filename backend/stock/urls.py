@@ -16,4 +16,6 @@ urlpatterns = [
     path('financial-metrics/<str:symbol>/', views.get_financial_metrics, name='financial-metrics'),
     path('earnings-call-sentiment/', views.earnings_call_sentiment, name='earnings-call-sentiment'),
     path('key-highlights/', views.get_key_highlights, name='key-highlights'),
+    path('chat/', views.chat, name='chat'),
+    path('suggested-questions/', views.get_suggested_questions, name='suggested-questions'),
 ] 

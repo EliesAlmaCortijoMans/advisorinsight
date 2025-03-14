@@ -721,6 +721,22 @@ const Dashboard: React.FC = () => {
                       />
                     </div>
                   </div>
+
+                  <div className={`mt-8 rounded-xl p-6 ${
+                    isDarkMode 
+                      ? 'bg-gray-800/50 shadow-xl shadow-gray-900/50' 
+                      : 'bg-white/90 shadow-xl shadow-gray-200/50'
+                  } relative overflow-hidden backdrop-blur-sm`}>
+                    <div className="relative z-10">
+                      <AnalysisTabs
+                        activeTab={activeTab}
+                        onTabChange={setActiveTab}
+                      />
+                      <div className="mt-6">
+                        {renderAnalysisContent()}
+                      </div>
+                    </div>
+                  </div>
                 </>
               ) : (
                 <div className={`max-w-4xl mx-auto py-16 text-center space-y-8`}>
@@ -732,7 +748,7 @@ const Dashboard: React.FC = () => {
                   <p className={`text-xl leading-relaxed ${
                     isDarkMode ? 'text-gray-300' : 'text-gray-600'
                   }`}>
-                    Your AI-powered platform for real-time earnings call analysis. Get instant access to transcriptions, 
+                    AI-powered platform for real-time earnings call analysis. Get instant access to transcriptions, 
                     key financial metrics, sentiment analysis, and market impact assessments.
                   </p>
                   <div className={`grid grid-cols-1 md:grid-cols-3 gap-6 mt-12`}>
@@ -783,22 +799,15 @@ const Dashboard: React.FC = () => {
                   </p>
                 </div>
               )}
-
-              <div className={`mt-8 rounded-xl p-6 ${
-                isDarkMode 
-                  ? 'bg-gray-800/50 shadow-xl shadow-gray-900/50' 
-                  : 'bg-white/90 shadow-xl shadow-gray-200/50'
-              } relative overflow-hidden backdrop-blur-sm`}>
-                <div className="relative z-10">
-                  <AnalysisTabs
-                    activeTab={activeTab}
-                    onTabChange={setActiveTab}
-                  />
-                  <div className="mt-6">
-                    {renderAnalysisContent()}
-                  </div>
-                </div>
-              </div>
+            </div>
+            
+            {/* Copyright Text */}
+            <div className="fixed bottom-4 right-4 z-50">
+              <p className={`text-sm ${
+                isDarkMode ? 'text-gray-500' : 'text-gray-400'
+              }`}>
+                © {new Date().getFullYear()} AdvisorInsight. All rights reserved.
+              </p>
             </div>
           </main>
         </div>

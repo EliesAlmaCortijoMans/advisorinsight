@@ -29,6 +29,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+from .chat_service import ChatService
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -126,6 +127,8 @@ OVERLAP_SIZE = 200
 OPENAI_MODEL = "gpt-3.5-turbo"
 INDEX_DIR = "vector_dbs"
 PDF_DIR = "data"  # Relative to project root
+
+chat_service = ChatService()
 
 def get_transcript(request, company_symbol, transcript_id):
     try:
@@ -1634,3 +1637,47 @@ def get_key_highlights(request):
         return JsonResponse({
             'error': f'Failed to fetch key highlights: {str(e)}'
         }, status=500)
+
+@api_view(['POST'])
+def chat(request):
+    """
+    Endpoint for handling chat messages and generating responses
+    """
+    try:
+        message = request.data.get('message')
+        symbol = request.data.get('symbol', 'AAPL')  # Default to AAPL if no symbol provided
+        
+        if not message:
+            logger.warning("Chat request received without message")
+            return Response({'error': 'Message is required'}, status=400)
+            
+        logger.info(f"Processing chat request for symbol: {symbol}")
+        response = chat_service.generate_response(message, symbol)
+        
+        # Add CORS headers
+        response_data = {'response': response}
+        response = Response(response_data)
+        response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+        response["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error in chat endpoint: {str(e)}", exc_info=True)
+        return Response({
+            'error': 'An error occurred while processing your request. Please try again later.',
+            'detail': str(e) if settings.DEBUG else None
+        }, status=500)
+
+@api_view(['GET'])
+def get_suggested_questions(request):
+    """
+    Endpoint for getting suggested questions for a company
+    """
+    try:
+        symbol = request.query_params.get('symbol', 'AAPL')
+        questions = chat_service.get_suggested_questions(symbol)
+        return Response({'questions': questions})
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
