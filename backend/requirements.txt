@@ -20,5 +20,7 @@ vosk
 
 langchain
 langchain-community
+langchain_openai
+faiss-cpu
 
 pandas
