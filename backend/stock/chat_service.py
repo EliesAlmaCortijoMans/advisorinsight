@@ -6,6 +6,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Dict, Any, List
 import time
+import yfinance as yf
 
 logger = logging.getLogger(__name__)
 
@@ -115,11 +116,131 @@ class ChatService:
             logger.error(f"Error fetching company data for {symbol}: {str(e)}")
             raise
 
-    def generate_response(self, message: str, symbol: str) -> str:
-        """Generate a response using OpenAI based on company data"""
+    def generate_response(self, message: str, symbol: str = None) -> str:
+        """Generate a response using OpenAI based on company data or market data"""
         try:
-            logger.info(f"Generating response for message about {symbol}")
-            # Fetch latest company data
+            logger.info(f"Generating response for {'market' if not symbol else symbol} query")
+            
+            if not symbol:  # Market-specific query
+                # Get real-time market data based on the question
+                market_data = {}
+                message_lower = message.lower()
+                
+                if any(keyword in message_lower for keyword in ['sector', 'sectors']):
+                    # Fetch sector performance data
+                    sectors = {
+                        "XLK": "Technology",
+                        "XLV": "Healthcare", 
+                        "XLF": "Financials",
+                        "XLE": "Energy",
+                        "XLI": "Industrials",
+                        "XLC": "Communication"
+                    }
+                    sector_data = {}
+                    for symbol, name in sectors.items():
+                        ticker = yf.Ticker(symbol)
+                        data = ticker.history(period='1d')
+                        if not data.empty:
+                            latest_price = data['Close'].iloc[-1]
+                            previous_close = data['Close'].iloc[0]
+                            change_percent = ((latest_price - previous_close) / previous_close) * 100
+                            sector_data[name] = {
+                                'price': round(latest_price, 2),
+                                'change_percent': round(change_percent, 2)
+                            }
+                    market_data['sectors'] = sector_data
+                    
+                elif any(keyword in message_lower for keyword in ['volume', 'trading volume']):
+                    # Fetch volume data for major stocks
+                    tickers = ["AAPL", "MSFT", "GOOGL", "AMZN", "META"]
+                    volume_data = {}
+                    for symbol in tickers:
+                        ticker = yf.Ticker(symbol)
+                        data = ticker.history(period='1d')
+                        if not data.empty:
+                            volume = data['Volume'].iloc[-1]
+                            volume_data[symbol] = {
+                                'volume': f"{volume/1e6:.1f}M" if volume < 1e9 else f"{volume/1e9:.1f}B"
+                            }
+                    market_data['volume'] = volume_data
+                    
+                elif any(keyword in message_lower for keyword in ['global', 'international']):
+                    # Fetch global indices data
+                    indices = {'^FTSE': 'FTSE 100', '^N225': 'Nikkei 225'}
+                    global_data = {}
+                    for symbol, name in indices.items():
+                        ticker = yf.Ticker(symbol)
+                        data = ticker.history(period='1d')
+                        if not data.empty:
+                            latest_price = data['Close'].iloc[-1]
+                            previous_close = data['Close'].iloc[0]
+                            change_percent = ((latest_price - previous_close) / previous_close) * 100
+                            global_data[name] = {
+                                'price': round(latest_price, 2),
+                                'change_percent': round(change_percent, 2)
+                            }
+                    market_data['global'] = global_data
+                    
+                elif any(keyword in message_lower for keyword in ['movers', 'gainers', 'losers']):
+                    # Fetch top movers data
+                    tickers = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA"]
+                    performance_data = []
+                    for symbol in tickers:
+                        ticker = yf.Ticker(symbol)
+                        data = ticker.history(period='1d')
+                        if not data.empty:
+                            latest_price = data['Close'].iloc[-1]
+                            previous_close = data['Close'].iloc[0]
+                            change_percent = ((latest_price - previous_close) / previous_close) * 100
+                            performance_data.append({
+                                'symbol': symbol,
+                                'price': round(latest_price, 2),
+                                'change_percent': round(change_percent, 2)
+                            })
+                    performance_data.sort(key=lambda x: x['change_percent'], reverse=True)
+                    market_data['movers'] = {
+                        'gainers': performance_data[:3],
+                        'losers': performance_data[-3:]
+                    }
+                
+                # Get sentiment data from Finnhub if available
+                try:
+                    sentiment = self.finnhub_client.news_sentiment("SPY")  # Use SPY as market proxy
+                    market_data['sentiment'] = {
+                        'bullish_percent': sentiment.get('sentiment', {}).get('bullishPercent', 0),
+                        'bearish_percent': sentiment.get('sentiment', {}).get('bearishPercent', 0)
+                    }
+                except Exception as e:
+                    logger.warning(f"Failed to fetch sentiment data: {e}")
+                
+                # Create a prompt with the market data
+                prompt = f"""You are a market insights assistant. Answer the following question using the provided real-time market data:
+
+Question: {message}
+
+Real-time Market Data:
+{json.dumps(market_data, indent=2)}
+
+Please provide a concise and informative response focusing on the key insights from the data.
+If the data doesn't contain information relevant to the question, provide a general market analysis based on the available data.
+Use specific numbers and percentages when available, and format currency values appropriately.
+"""
+
+                # Generate response using GPT
+                response = self.openai_client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": "You are a knowledgeable market analyst providing real-time market insights."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.3,
+                    max_tokens=150
+                )
+                
+                return response.choices[0].message.content.strip()
+            
+            # Handle company-specific queries (existing code)
+            logger.info(f"Fetching company data for {symbol}")
             include_peers = any(keyword in message.lower() for keyword in ["compare", "competitor", "peer"])
             company_data = self.get_company_data(symbol, include_peers=include_peers)
             
@@ -442,28 +563,38 @@ class ChatService:
             logger.error(f"Error generating response: {str(e)}")
             return "I apologize, but I encountered an error while processing your request. Please try again later."
 
-    def get_suggested_questions(self, symbol: str) -> List[str]:
-        """Generate suggested questions based on available company data"""
+    def get_suggested_questions(self, symbol: str = None) -> List[str]:
+        """Generate suggested questions based on available company data or market data"""
         try:
-            logger.info(f"Getting suggested questions for {symbol}")
-            company_data = self.get_company_data(symbol)
+            logger.info(f"Getting suggested questions for {'market' if not symbol else symbol}")
             
+            if not symbol:  # Market-specific questions
+                return [
+                    "What are the top performing sectors today?",
+                    "Which stocks have the highest trading volume?",
+                    "How are global markets performing?",
+                    "What are the biggest market movers today?",
+                    "Show me the current market sentiment analysis",
+                    "What is the current S&P 500 performance?",
+                    "Compare technology sector vs healthcare sector performance",
+                    "What are the market trends in the last hour?"
+                ]
+            
+            # Company-specific questions
+            company_data = self.get_company_data(symbol)
             if not company_data:
                 logger.warning(f"No company data available for {symbol}")
                 return []
 
             company_name = company_data['profile'].get('name', symbol)
-            basic_questions = [
+            return [
                 f"What are the key financial metrics for {company_name}?",
                 "How has the market reacted to recent announcements?",
                 "What is the company's revenue growth trend?",
                 "What are the major risks facing the company?",
                 "How does the company compare to its competitors?"
             ]
-
-            logger.info(f"Generated {len(basic_questions)} suggested questions for {symbol}")
-            return basic_questions
             
         except Exception as e:
-            logger.error(f"Error getting suggested questions for {symbol}: {str(e)}")
+            logger.error(f"Error getting suggested questions: {str(e)}")
             return [] 

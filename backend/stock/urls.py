@@ -18,4 +18,8 @@ urlpatterns = [
     path('key-highlights/', views.get_key_highlights, name='key-highlights'),
     path('chat/', views.chat, name='chat'),
     path('suggested-questions/', views.get_suggested_questions, name='suggested-questions'),
+    path('indices/', views.get_indices_data, name='get_indices_data'),
+    path('chat/market/', views.market_chat, name='market_chat'),
+    path('market-chat/', views.market_chat, name='market_chat'),
+    path('market-chat/suggested-questions/', views.get_market_suggested_questions, name='market_suggested_questions'),
 ] 

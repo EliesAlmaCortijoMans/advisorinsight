@@ -62,7 +62,12 @@ const AppContent: React.FC = () => {
           nextMarketOpen={nextMarketOpen}
         />
         <Routes>
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard" element={
+            <>
+              <Dashboard />
+              {selectedCompany && <ChatBot symbol={selectedCompany.symbol} />}
+            </>
+          } />
           <Route path="/market" element={<MarketInsights />} />
           <Route path="/analysis" element={<AIAnalysis />} />
           <Route path="/settings" element={<Settings />} />
@@ -71,7 +76,6 @@ const AppContent: React.FC = () => {
           <Route path="/compare" element={<CompareCompanies />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Routes>
-        {selectedCompany && <ChatBot symbol={selectedCompany.symbol} />}
       </div>
     </Router>
   );
