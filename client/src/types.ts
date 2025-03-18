@@ -6,6 +6,17 @@ export interface EarningsCall {
   status: 'upcoming' | 'ongoing' | 'past';
   expectedEPS: number;
   actualEPS?: number;
+  revenue?: number;
+  keyHighlights?: string[];
+  guidance?: {
+    revenue?: number;
+    eps?: number;
+  };
+  marketImpact?: {
+    priceChange: number;
+    volumeChange: number;
+  };
+  sentiment?: string;
 }
 
 export interface Company {

@@ -9,7 +9,7 @@ import FinancialMetrics from '../components/analysis/FinancialMetrics';
 import InvestorReactions from '../components/analysis/InvestorReactions';
 import MarketImpact from '../components/analysis/MarketImpact';
 import News from '../components/analysis/News';
-import { Headphones, FileText, Radio, ToggleLeft, ToggleRight, Play, Pause } from 'lucide-react';
+import { Headphones, FileText, Radio, Play, Pause } from 'lucide-react';
 import TranscriptModal from '../components/modals/TranscriptModal';
 import SummaryModal from '../components/modals/SummaryModal';
 import { StockWebSocket } from '../services/stockWebSocket';
@@ -21,11 +21,10 @@ import { useSelectedCompany } from '../contexts/CompanyContext';
 import CallSummaryPanel from '../components/CallSummaryPanel';
 import LiveCaption from '../components/LiveCaption';
 
-type PriceUpdateCallback = (data: any) => void;
 
 const Dashboard: React.FC = () => {
   const { selectedCompany, setSelectedCompany } = useSelectedCompany();
-  const [activeTab, setActiveTab] = useState<AnalysisTab>('sentiment');
+  const [activeTab, setActiveTab] = useState<AnalysisTab>('market-impact');
   const [showAudioHistory, setShowAudioHistory] = useState(false);
   const [showFullTranscript, setShowFullTranscript] = useState(false);
   const [showFullSummary, setShowFullSummary] = useState(false);
@@ -373,7 +372,7 @@ const Dashboard: React.FC = () => {
     const selectedCall = earningsData.find(call => call.company === company.name);
     if (selectedCall?.symbol) {
       const companyTranscripts = transcriptCache.get(selectedCall.symbol);
-      if (companyTranscripts?.length > 0) {
+      if (companyTranscripts && companyTranscripts.length > 0) {
         const mostRecentTranscript = companyTranscripts[0]; // Assuming sorted by date desc
         setSelectedCompany({
           ...company,
@@ -722,32 +721,93 @@ const Dashboard: React.FC = () => {
                       />
                     </div>
                   </div>
+
+                  <div className={`mt-8 rounded-xl p-6 ${
+                    isDarkMode 
+                      ? 'bg-gray-800/50 shadow-xl shadow-gray-900/50' 
+                      : 'bg-white/90 shadow-xl shadow-gray-200/50'
+                  } relative overflow-hidden backdrop-blur-sm`}>
+                    <div className="relative z-10">
+                      <AnalysisTabs
+                        activeTab={activeTab}
+                        onTabChange={setActiveTab}
+                      />
+                      <div className="mt-6">
+                        {renderAnalysisContent()}
+                      </div>
+                    </div>
+                  </div>
                 </>
               ) : (
-                <div className="text-center py-12">
-                  <h2 className={`text-2xl font-semibold ${
-                    isDarkMode ? 'text-gray-200' : 'text-gray-700'
+                <div className={`max-w-4xl mx-auto py-16 text-center space-y-8`}>
+                  <h2 className={`text-3xl font-bold ${
+                    isDarkMode ? 'text-gray-100' : 'text-gray-900'
                   }`}>
-                    Select a company from the sidebar to view analysis
+                    Welcome to AdvisorInsight
                   </h2>
+                  <p className={`text-xl leading-relaxed ${
+                    isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                  }`}>
+                    AI-powered platform for real-time earnings call analysis. Get instant access to transcriptions, 
+                    key financial metrics, sentiment analysis, and market impact assessments.
+                  </p>
+                  <div className={`grid grid-cols-1 md:grid-cols-3 gap-6 mt-12`}>
+                    <div className={`p-6 rounded-xl ${
+                      isDarkMode 
+                        ? 'bg-gray-800/50 shadow-xl shadow-gray-900/50' 
+                        : 'bg-white/90 shadow-xl shadow-gray-200/50'
+                    }`}>
+                      <Headphones className={`w-8 h-8 mb-4 mx-auto ${
+                        isDarkMode ? 'text-indigo-400' : 'text-indigo-600'
+                      }`} />
+                      <h3 className="text-lg font-semibold mb-2">Live Listening</h3>
+                      <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        Listen to earnings calls in real-time with AI-powered transcription
+                      </p>
+                    </div>
+                    <div className={`p-6 rounded-xl ${
+                      isDarkMode 
+                        ? 'bg-gray-800/50 shadow-xl shadow-gray-900/50' 
+                        : 'bg-white/90 shadow-xl shadow-gray-200/50'
+                    }`}>
+                      <FileText className={`w-8 h-8 mb-4 mx-auto ${
+                        isDarkMode ? 'text-indigo-400' : 'text-indigo-600'
+                      }`} />
+                      <h3 className="text-lg font-semibold mb-2">Smart Analysis</h3>
+                      <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        Get instant insights from earnings calls with our AI analysis
+                      </p>
+                    </div>
+                    <div className={`p-6 rounded-xl ${
+                      isDarkMode 
+                        ? 'bg-gray-800/50 shadow-xl shadow-gray-900/50' 
+                        : 'bg-white/90 shadow-xl shadow-gray-200/50'
+                    }`}>
+                      <Radio className={`w-8 h-8 mb-4 mx-auto ${
+                        isDarkMode ? 'text-indigo-400' : 'text-indigo-600'
+                      }`} />
+                      <h3 className="text-lg font-semibold mb-2">Real-time Updates</h3>
+                      <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        Stay updated with live market reactions and key metrics
+                      </p>
+                    </div>
+                  </div>
+                  <p className={`text-lg mt-12 ${
+                    isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                  }`}>
+                    Select a company from the sidebar to begin your analysis
+                  </p>
                 </div>
               )}
-
-              <div className={`mt-8 rounded-xl p-6 ${
-                isDarkMode 
-                  ? 'bg-gray-800/50 shadow-xl shadow-gray-900/50' 
-                  : 'bg-white/90 shadow-xl shadow-gray-200/50'
-              } relative overflow-hidden backdrop-blur-sm`}>
-                <div className="relative z-10">
-                  <AnalysisTabs
-                    activeTab={activeTab}
-                    onTabChange={setActiveTab}
-                  />
-                  <div className="mt-6">
-                    {renderAnalysisContent()}
-                  </div>
-                </div>
-              </div>
+            </div>
+            
+            {/* Copyright Text */}
+            <div className="fixed bottom-4 right-4 z-50">
+              <p className={`text-sm ${
+                isDarkMode ? 'text-gray-500' : 'text-gray-400'
+              }`}>
+                © {new Date().getFullYear()} AdvisorInsight. All rights reserved.
+              </p>
             </div>
           </main>
         </div>

@@ -29,6 +29,8 @@ from langchain_community.vectorstores import FAISS
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+from .chat_service import ChatService
+import yfinance as yf
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -126,6 +128,8 @@ OVERLAP_SIZE = 200
 OPENAI_MODEL = "gpt-3.5-turbo"
 INDEX_DIR = "vector_dbs"
 PDF_DIR = "data"  # Relative to project root
+
+chat_service = ChatService()
 
 def get_transcript(request, company_symbol, transcript_id):
     try:
@@ -1634,3 +1638,349 @@ def get_key_highlights(request):
         return JsonResponse({
             'error': f'Failed to fetch key highlights: {str(e)}'
         }, status=500)
+
+@api_view(['POST'])
+def chat(request):
+    """
+    Endpoint for handling both market and company-specific chat messages
+    """
+    try:
+        message = request.data.get('message')
+        symbol = request.data.get('symbol')  # None for market queries, symbol for company queries
+        
+        if not message:
+            logger.warning("Chat request received without message")
+            return Response({'error': 'Message is required'}, status=400)
+            
+        logger.info(f"Processing chat request for {'market' if not symbol else symbol}")
+        response = chat_service.generate_response(message, symbol)
+        
+        # Add CORS headers
+        response_data = {'response': response}
+        response = Response(response_data)
+        response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+        response["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error in chat endpoint: {str(e)}", exc_info=True)
+        return Response({
+            'error': 'An error occurred while processing your request. Please try again later.',
+            'detail': str(e) if settings.DEBUG else None
+        }, status=500)
+
+@api_view(['GET'])
+def get_suggested_questions(request):
+    """
+    Endpoint for getting suggested questions for market or company
+    """
+    try:
+        symbol = request.query_params.get('symbol')  # None for market questions
+        questions = chat_service.get_suggested_questions(symbol)
+        return Response({'questions': questions})
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+@api_view(['GET'])
+def get_indices_data(request):
+    try:
+        # US indices
+        us_indices = ['^DJI', '^GSPC', '^IXIC']  # Dow Jones, S&P 500, NASDAQ
+        # Global indices
+        global_indices = ['^FTSE', '^N225']  # FTSE 100, Nikkei 225
+        # Sector ETFs
+        sectors = {
+            "XLK": "Technology",
+            "XLV": "Healthcare", 
+            "XLF": "Financials",
+            "XLE": "Energy",
+            "XLI": "Industrials",
+            "XLC": "Communication"
+        }
+        
+        # Top 100 S&P 500 tickers for volume and movers
+        tickers = [
+            "AAPL", "MSFT", "AMZN", "GOOGL", "META", "NVDA", "TSLA", "BRK-B", "UNH", "JNJ",
+            "XOM", "JPM", "V", "PG", "CVX", "HD", "MA", "LLY", "MRK", "ABBV",
+            "PEP", "KO", "BAC", "PFE", "COST", "AVGO", "DIS", "CSCO", "MCD", "WMT",
+            "ACN", "DHR", "NEE", "TXN", "LIN", "VZ", "ADBE", "CMCSA", "NFLX", "INTC"
+        ]
+        
+        indices_data = {
+            'us': {},
+            'global': {},
+            'sectors': {},
+            'movers': {
+                'gainers': [],
+                'losers': []
+            },
+            'volume_leaders': []
+        }
+        
+        # Fetch US indices data...
+        for symbol in us_indices:
+            ticker = yf.Ticker(symbol)
+            data = ticker.history(period='1d', interval='1m')
+            if not data.empty:
+                latest_price = data['Close'].iloc[-1]
+                previous_close = data['Close'].iloc[0]
+                change = latest_price - previous_close
+                change_percent = (change / previous_close) * 100
+                
+                indices_data['us'][symbol] = {
+                    'name': 'Dow Jones' if symbol == '^DJI' else 'S&P 500' if symbol == '^GSPC' else 'NASDAQ',
+                    'price': round(latest_price, 2),
+                    'change': round(change, 2),
+                    'change_percent': round(change_percent, 2)
+                }
+        
+        # Fetch global indices data...
+        for symbol in global_indices:
+            ticker = yf.Ticker(symbol)
+            data = ticker.history(period='1d', interval='1m')
+            if not data.empty:
+                latest_price = data['Close'].iloc[-1]
+                previous_close = data['Close'].iloc[0]
+                change = latest_price - previous_close
+                change_percent = (change / previous_close) * 100
+                
+                indices_data['global'][symbol] = {
+                    'name': 'FTSE 100' if symbol == '^FTSE' else 'Nikkei 225',
+                    'price': round(latest_price, 2),
+                    'change': round(change, 2),
+                    'change_percent': round(change_percent, 2)
+                }
+
+        # Fetch sector performance data...
+        for symbol, name in sectors.items():
+            ticker = yf.Ticker(symbol)
+            data = ticker.history(period='1d', interval='1m')
+            if not data.empty:
+                latest_price = data['Close'].iloc[-1]
+                previous_close = data['Close'].iloc[0]
+                change = latest_price - previous_close
+                change_percent = (change / previous_close) * 100
+                
+                indices_data['sectors'][symbol] = {
+                    'name': name,
+                    'price': round(latest_price, 2),
+                    'change': round(change, 2),
+                    'change_percent': round(change_percent, 2)
+                }
+
+        # Fetch volume leaders and top movers data
+        volume_data = []
+        performance = []
+        
+        for ticker in tickers:
+            try:
+                stock = yf.Ticker(ticker)
+                data = stock.history(period='2d')
+                if len(data) > 1:
+                    # Volume data
+                    latest_volume = data['Volume'].iloc[-1]
+                    previous_volume = data['Volume'].iloc[-2]
+                    volume_change_pct = ((latest_volume - previous_volume) / previous_volume) * 100
+                    
+                    # Price data for movers
+                    latest_price = data['Close'].iloc[-1]
+                    previous_close = data['Close'].iloc[-2]
+                    price_change = latest_price - previous_close
+                    price_change_percent = (price_change / previous_close) * 100
+                    
+                    # Format volume
+                    formatted_volume = f"{latest_volume / 1e9:.1f}B" if latest_volume >= 1e9 else f"{latest_volume / 1e6:.1f}M"
+                    
+                    volume_data.append({
+                        'symbol': ticker,
+                        'volume': formatted_volume,
+                        'volume_raw': latest_volume,  # For sorting
+                        'volume_change_percent': round(volume_change_pct, 1),
+                        'price': round(latest_price, 2),
+                        'change_percent': round(price_change_percent, 2)
+                    })
+                    
+                    performance.append({
+                        'symbol': ticker,
+                        'price': round(latest_price, 2),
+                        'change': round(price_change, 2),
+                        'change_percent': round(price_change_percent, 2)
+                    })
+            except Exception as e:
+                logger.error(f"Error processing {ticker}: {e}")
+                continue
+
+        # Sort and get top 5 volume leaders
+        volume_data.sort(key=lambda x: x['volume_raw'], reverse=True)
+        indices_data['volume_leaders'] = [
+            {k: v for k, v in item.items() if k != 'volume_raw'}  # Remove volume_raw from response
+            for item in volume_data[:5]
+        ]
+        
+        # Sort and get top movers
+        performance.sort(key=lambda x: x['change_percent'], reverse=True)
+        indices_data['movers']['gainers'] = performance[:5]
+        indices_data['movers']['losers'] = performance[-5:]
+        
+        return Response(indices_data)
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+@api_view(['POST'])
+def market_chat(request):
+    """
+    Endpoint for handling market-specific chat messages and generating responses
+    using real-time market data from yfinance, OpenAI, and Finnhub.
+    """
+    try:
+        message = request.data.get('message')
+        if not message:
+            return Response({'error': 'Message is required'}, status=400)
+            
+        # Initialize OpenAI client
+        client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        
+        # Get real-time market data based on the question
+        market_data = {}
+        message_lower = message.lower()
+        
+        # Fetch relevant data based on the question type
+        if any(keyword in message_lower for keyword in ['sector', 'sectors']):
+            # Fetch sector performance data using yfinance
+            sectors = {
+                "XLK": "Technology",
+                "XLV": "Healthcare", 
+                "XLF": "Financials",
+                "XLE": "Energy",
+                "XLI": "Industrials",
+                "XLC": "Communication"
+            }
+            sector_data = {}
+            for symbol, name in sectors.items():
+                ticker = yf.Ticker(symbol)
+                data = ticker.history(period='1d')
+                if not data.empty:
+                    latest_price = data['Close'].iloc[-1]
+                    previous_close = data['Close'].iloc[0]
+                    change_percent = ((latest_price - previous_close) / previous_close) * 100
+                    sector_data[name] = {
+                        'price': round(latest_price, 2),
+                        'change_percent': round(change_percent, 2)
+                    }
+            market_data['sectors'] = sector_data
+            
+        elif any(keyword in message_lower for keyword in ['volume', 'trading volume']):
+            # Fetch volume data for major stocks using yfinance
+            tickers = ["AAPL", "MSFT", "GOOGL", "AMZN", "META"]
+            volume_data = {}
+            for symbol in tickers:
+                ticker = yf.Ticker(symbol)
+                data = ticker.history(period='1d')
+                if not data.empty:
+                    volume = data['Volume'].iloc[-1]
+                    volume_data[symbol] = {
+                        'volume': f"{volume/1e6:.1f}M" if volume < 1e9 else f"{volume/1e9:.1f}B"
+                    }
+            market_data['volume'] = volume_data
+            
+        elif any(keyword in message_lower for keyword in ['global', 'international']):
+            # Fetch global indices data using yfinance
+            indices = {'^FTSE': 'FTSE 100', '^N225': 'Nikkei 225'}
+            global_data = {}
+            for symbol, name in indices.items():
+                ticker = yf.Ticker(symbol)
+                data = ticker.history(period='1d')
+                if not data.empty:
+                    latest_price = data['Close'].iloc[-1]
+                    previous_close = data['Close'].iloc[0]
+                    change_percent = ((latest_price - previous_close) / previous_close) * 100
+                    global_data[name] = {
+                        'price': round(latest_price, 2),
+                        'change_percent': round(change_percent, 2)
+                    }
+            market_data['global'] = global_data
+            
+        elif any(keyword in message_lower for keyword in ['movers', 'gainers', 'losers']):
+            # Fetch top movers data using yfinance
+            tickers = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA"]
+            performance_data = []
+            for symbol in tickers:
+                ticker = yf.Ticker(symbol)
+                data = ticker.history(period='1d')
+                if not data.empty:
+                    latest_price = data['Close'].iloc[-1]
+                    previous_close = data['Close'].iloc[0]
+                    change_percent = ((latest_price - previous_close) / previous_close) * 100
+                    performance_data.append({
+                        'symbol': symbol,
+                        'price': round(latest_price, 2),
+                        'change_percent': round(change_percent, 2)
+                    })
+            performance_data.sort(key=lambda x: x['change_percent'], reverse=True)
+            market_data['movers'] = {
+                'gainers': performance_data[:3],
+                'losers': performance_data[-3:]
+            }
+            
+        # Get sentiment data from Finnhub
+        try:
+            sentiment = finnhub_client.news_sentiment("SPY")  # Use SPY as market proxy
+            market_data['sentiment'] = {
+                'bullish_percent': sentiment.get('sentiment', {}).get('bullishPercent', 0),
+                'bearish_percent': sentiment.get('sentiment', {}).get('bearishPercent', 0)
+            }
+        except Exception as e:
+            logger.warning(f"Failed to fetch sentiment data: {e}")
+        
+        # Create a prompt with the market data
+        prompt = f"""You are a market insights assistant with access to real-time financial data. Answer the following question using the provided real-time market data:
+
+Question: {message}
+
+Real-time Market Data:
+{json.dumps(market_data, indent=2)}
+
+Please provide a concise and informative response focusing on the key insights from the data.
+If the data doesn't contain information relevant to the question, provide a general market analysis based on the available data.
+Use specific numbers and percentages when available, and format currency values appropriately.
+Keep your response focused on the market data and avoid making predictions or giving financial advice.
+"""
+
+        # Generate response using GPT
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are a knowledgeable market analyst providing real-time market insights."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3,
+            max_tokens=150
+        )
+        
+        return Response({
+            'response': response.choices[0].message.content.strip()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in market chat: {str(e)}", exc_info=True)
+        return Response({
+            'error': 'An error occurred while processing your request.',
+            'detail': str(e) if settings.DEBUG else None
+        }, status=500)
+
+@api_view(['GET'])
+def get_market_suggested_questions(request):
+    """Get suggested questions for market insights"""
+    questions = [
+        "What are the top performing sectors today?",
+        "Which stocks have the highest trading volume?",
+        "How are global markets performing today?",
+        "What are today's biggest market movers?",
+        "Compare technology sector vs healthcare sector",
+        "What's the current market sentiment?",
+        "Show me the performance of energy stocks",
+        "How are financial stocks doing today?"
+    ]
+    return Response({'questions': questions})
