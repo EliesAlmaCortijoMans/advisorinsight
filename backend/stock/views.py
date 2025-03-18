@@ -18,10 +18,8 @@ from rest_framework.response import Response
 from openai import OpenAI
 import finnhub
 from dotenv import load_dotenv
-import random
 from langchain.prompts import ChatPromptTemplate
-from langchain.chains.llm import LLMChain
-from langchain.chat_models import ChatOpenAI
+from .llm_service import llm_call
 from langchain.schema import BaseOutputParser
 from .earnings_analyzer import EarningsCallAnalyzer
 import glob
@@ -39,11 +37,9 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 # Set up LLM
-llm = ChatOpenAI(
-    model="gpt-3.5-turbo-16k",
-    temperature=0.3,
-    api_key=settings.OPENAI_API_KEY
-)
+llm = llm_call()
+chat_model = llm
+    
 
 # Set up JSON parser
 class QAAnalysisParser(BaseOutputParser):
@@ -1472,7 +1468,7 @@ def earnings_call_sentiment(request):
         return JsonResponse({'error': 'Symbol is required'}, status=400)
 
     try:
-        analyzer = EarningsCallAnalyzer()
+        analyzer = EarningsCallAnalyzer(llm)
         analysis = analyzer.analyze_text(symbol, status)
         
         if 'error' in analysis:
@@ -1556,11 +1552,6 @@ def search_faiss(index, query):
 
 def generate_response(context, question):
     """Generates response using GPT model."""
-    chat_model = ChatOpenAI(
-        model_name=OPENAI_MODEL,
-        openai_api_key=settings.OPENAI_API_KEY,
-        temperature=0.3
-    )
     MESSAGES = [
         {
             "role": "system", "content": """

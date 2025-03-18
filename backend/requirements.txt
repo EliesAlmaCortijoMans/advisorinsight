@@ -17,7 +17,6 @@ channels-redis>=4.1.0
 numpy>=1.26.0
 
 vosk
-
 pandas
 python-dotenv 
 langchain 
