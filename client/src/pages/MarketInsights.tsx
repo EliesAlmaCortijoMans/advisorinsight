@@ -16,6 +16,8 @@ import {
   Loader2,
   Send
 } from 'lucide-react';
+import { FiMinimize2, FiMaximize2 } from 'react-icons/fi';
+import { IoMdClose, IoMdChatboxes } from 'react-icons/io';
 
 interface IndicesData {
   us: {
@@ -80,6 +82,8 @@ const MarketInsights: React.FC = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([]);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const [isChatOpen, setIsChatOpen] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const fetchIndicesData = async () => {
     try {
@@ -358,118 +362,145 @@ const MarketInsights: React.FC = () => {
       </div>
 
       {/* Chat Interface */}
-      <div className={`fixed bottom-6 right-6 w-96 ${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-xl`}>
-        <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-          <h3 className="text-lg font-semibold flex items-center">
-            <Brain className="w-5 h-5 mr-2" />
-            AI Assistant - Market Insights
-          </h3>
-        </div>
-
-        {/* Chat Messages */}
-        <div 
-          ref={chatContainerRef}
-          className="h-96 overflow-y-auto p-4 space-y-4"
-        >
-          {chatHistory.length === 0 && (
-            <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-              Hello! I'm your AI Assistant for Market Insights. I can help you analyze market trends, sector performance, and provide real-time financial data. Feel free to ask me anything about the current market conditions.
-            </div>
-          )}
-          {chatHistory.map((msg, index) => (
-            <div
-              key={index}
-              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-[80%] rounded-lg p-3 ${
-                  msg.role === 'user'
-                    ? `${isDarkMode ? 'bg-blue-600' : 'bg-blue-500'} text-white`
-                    : `${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`
-                }`}
+      {isChatOpen ? (
+        <div className={`fixed bottom-6 right-6 w-96 ${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-xl transition-all duration-300 ${isExpanded ? 'h-[600px]' : 'h-[500px]'}`}>
+          <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+            <h3 className="text-lg font-semibold flex items-center">
+              <Brain className="w-5 h-5 mr-2" />
+              AI Assistant - Market Insights
+            </h3>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className={`p-1.5 rounded-full transition-colors duration-200 ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
               >
-                <p className="text-sm">{msg.content}</p>
-              </div>
+                {isExpanded ? <FiMinimize2 size={16} /> : <FiMaximize2 size={16} />}
+              </button>
+              <button
+                onClick={() => setIsChatOpen(false)}
+                className={`p-1.5 rounded-full transition-colors duration-200 ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+              >
+                <IoMdClose size={16} />
+              </button>
             </div>
-          ))}
-          {isTyping && (
-            <div className="flex justify-start">
-              <div className={`rounded-lg p-3 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                <div className="flex space-x-2">
-                  <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" />
-                  <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-100" />
-                  <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-200" />
+          </div>
+
+          {/* Chat Messages */}
+          <div 
+            ref={chatContainerRef}
+            className={`overflow-y-auto p-4 space-y-4 ${isExpanded ? 'h-[320px]' : 'h-[220px]'}`}
+          >
+            {chatHistory.length === 0 && (
+              <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                Hello! I'm your AI Assistant for Market Insights. I can help you analyze market trends, sector performance, and provide real-time financial data. Feel free to ask me anything about the current market conditions.
+              </div>
+            )}
+            {chatHistory.map((msg, index) => (
+              <div
+                key={index}
+                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`max-w-[80%] rounded-lg p-3 ${
+                    msg.role === 'user'
+                      ? `${isDarkMode ? 'bg-blue-600' : 'bg-blue-500'} text-white`
+                      : `${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`
+                  }`}
+                >
+                  <p className="text-sm">{msg.content}</p>
                 </div>
               </div>
+            ))}
+            {isTyping && (
+              <div className="flex justify-start">
+                <div className={`rounded-lg p-3 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                  <div className="flex space-x-2">
+                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" />
+                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-100" />
+                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-200" />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Suggested Questions */}
+          <div className={`p-4 border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+            <p className="text-sm font-medium mb-2">Try asking about:</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => handleQuestionClick("What are the top performing sectors today?")}
+                className={`text-xs px-3 py-1 rounded-full ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'}`}
+              >
+                Top performing sectors
+              </button>
+              <button
+                onClick={() => handleQuestionClick("Which stocks have the highest trading volume?")}
+                className={`text-xs px-3 py-1 rounded-full ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'}`}
+              >
+                Highest volume stocks
+              </button>
+              <button
+                onClick={() => handleQuestionClick("How are global markets performing today?")}
+                className={`text-xs px-3 py-1 rounded-full ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'}`}
+              >
+                Global markets performance
+              </button>
+              <button
+                onClick={() => handleQuestionClick("What are today's biggest market movers?")}
+                className={`text-xs px-3 py-1 rounded-full ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'}`}
+              >
+                Biggest market movers
+              </button>
+              <button
+                onClick={() => handleQuestionClick("Compare technology sector vs healthcare sector")}
+                className={`text-xs px-3 py-1 rounded-full ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'}`}
+              >
+                Sector comparison
+              </button>
             </div>
-          )}
-        </div>
+          </div>
 
-        {/* Suggested Questions */}
-        <div className={`p-4 border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-          <p className="text-sm font-medium mb-2">Try asking about:</p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => handleQuestionClick("What are the top performing sectors today?")}
-              className={`text-xs px-3 py-1 rounded-full ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'}`}
-            >
-              Top performing sectors
-            </button>
-            <button
-              onClick={() => handleQuestionClick("Which stocks have the highest trading volume?")}
-              className={`text-xs px-3 py-1 rounded-full ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'}`}
-            >
-              Highest volume stocks
-            </button>
-            <button
-              onClick={() => handleQuestionClick("How are global markets performing today?")}
-              className={`text-xs px-3 py-1 rounded-full ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'}`}
-            >
-              Global markets performance
-            </button>
-            <button
-              onClick={() => handleQuestionClick("What are today's biggest market movers?")}
-              className={`text-xs px-3 py-1 rounded-full ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'}`}
-            >
-              Biggest market movers
-            </button>
-            <button
-              onClick={() => handleQuestionClick("Compare technology sector vs healthcare sector")}
-              className={`text-xs px-3 py-1 rounded-full ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'}`}
-            >
-              Sector comparison
-            </button>
+          {/* Chat Input */}
+          <div className={`p-4 border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+            <div className="flex items-center space-x-2">
+              <input
+                type="text"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                placeholder="Ask about market insights..."
+                className={`flex-1 p-2 rounded-lg ${
+                  isDarkMode 
+                    ? 'bg-gray-700 text-white placeholder-gray-400' 
+                    : 'bg-gray-100 placeholder-gray-500'
+                } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+              />
+              <button
+                onClick={handleSendMessage}
+                className={`p-2 rounded-lg ${
+                  isDarkMode 
+                    ? 'bg-blue-600 hover:bg-blue-700' 
+                    : 'bg-blue-500 hover:bg-blue-600'
+                } text-white transition-colors duration-200`}
+              >
+                <Send className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
-
-        {/* Chat Input */}
-        <div className={`p-4 border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-          <div className="flex items-center space-x-2">
-            <input
-              type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-              placeholder="Ask about market insights..."
-              className={`flex-1 p-2 rounded-lg ${
-                isDarkMode 
-                  ? 'bg-gray-700 text-white placeholder-gray-400' 
-                  : 'bg-gray-100 placeholder-gray-500'
-              } focus:outline-none focus:ring-2 focus:ring-blue-500`}
-            />
-            <button
-              onClick={handleSendMessage}
-              className={`p-2 rounded-lg ${
-                isDarkMode 
-                  ? 'bg-blue-600 hover:bg-blue-700' 
-                  : 'bg-blue-500 hover:bg-blue-600'
-              } text-white transition-colors duration-200`}
-            >
-              <Send className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-      </div>
+      ) : (
+        <button
+          onClick={() => setIsChatOpen(true)}
+          className={`fixed bottom-6 right-6 ${
+            isDarkMode 
+              ? 'bg-blue-600 hover:bg-blue-700 text-white'
+              : 'bg-blue-500 hover:bg-blue-600 text-white'
+          } rounded-full p-4 shadow-lg transition-all duration-300 ease-in-out hover:scale-110 transform`}
+        >
+          <IoMdChatboxes size={24} className="animate-pulse" />
+        </button>
+      )}
     </div>
   );
 };

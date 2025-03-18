@@ -6,7 +6,6 @@ import { NotificationProvider } from './contexts/NotificationContext';
 import MainHeader from './components/header/MainHeader';
 import Dashboard from './pages/Dashboard';
 import MarketInsights from './pages/MarketInsights';
-import AIAnalysis from './pages/AIAnalysis';
 import Settings from './pages/Settings';
 import Help from './pages/Help';
 import Watchlist from './pages/Watchlist';
@@ -69,7 +68,6 @@ const AppContent: React.FC = () => {
             </>
           } />
           <Route path="/market" element={<MarketInsights />} />
-          <Route path="/analysis" element={<AIAnalysis />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/help" element={<Help />} />
           <Route path="/watchlist" element={<Watchlist />} />

@@ -39,7 +39,6 @@ const MainHeader: React.FC<MainHeaderProps> = ({ isMarketOpen, nextMarketOpen })
   const mainNavItems: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: <Home className="w-4 h-4" />, path: '/dashboard' },
     { id: 'market', label: 'Market Insights', icon: <LineChart className="w-4 h-4" />, path: '/market' },
-    { id: 'analysis', label: 'AI Analysis', icon: <Brain className="w-4 h-4" />, path: '/analysis' },
     { id: 'compare', label: 'Compare', icon: <GitCompare className="w-4 h-4" />, path: '/compare' },
   ];
 
