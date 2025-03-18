@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { 
   TrendingUp, 
@@ -12,11 +12,161 @@ import {
   Brain,
   Bell,
   Search,
-  Mic
+  Mic,
+  Loader2,
+  Send
 } from 'lucide-react';
+
+interface IndicesData {
+  us: {
+    [key: string]: {
+      name: string;
+      price: number;
+      change: number;
+      change_percent: number;
+    };
+  };
+  global: {
+    [key: string]: {
+      name: string;
+      price: number;
+      change: number;
+      change_percent: number;
+    };
+  };
+  sectors: {
+    [key: string]: {
+      name: string;
+      price: number;
+      change: number;
+      change_percent: number;
+    };
+  };
+  movers: {
+    gainers: Array<{
+      symbol: string;
+      price: number;
+      change: number;
+      change_percent: number;
+    }>;
+    losers: Array<{
+      symbol: string;
+      price: number;
+      change: number;
+      change_percent: number;
+    }>;
+  };
+  volume_leaders: Array<{
+    symbol: string;
+    volume: string;
+    volume_change_percent: number;
+    price: number;
+    change_percent: number;
+  }>;
+}
+
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
 
 const MarketInsights: React.FC = () => {
   const { isDarkMode } = useTheme();
+  const [indicesData, setIndicesData] = useState<IndicesData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState('');
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [isTyping, setIsTyping] = useState(false);
+  const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([]);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  const fetchIndicesData = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/stock/indices/');
+      if (!response.ok) {
+        throw new Error('Failed to fetch indices data');
+      }
+      const data = await response.json();
+      setIndicesData(data);
+      setError(null);
+    } catch (err) {
+      setError('Failed to fetch market data');
+      console.error('Error fetching indices data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchSuggestedQuestions = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/stock/chat/suggested-questions/');
+      if (!response.ok) {
+        throw new Error('Failed to fetch suggested questions');
+      }
+      const data = await response.json();
+      setSuggestedQuestions(data.questions);
+    } catch (err) {
+      console.error('Error fetching suggested questions:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchIndicesData();
+    fetchSuggestedQuestions();
+    // Update data every 5 seconds
+    const interval = setInterval(fetchIndicesData, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const scrollToBottom = () => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [chatHistory]);
+
+  const handleSendMessage = async () => {
+    if (!message.trim()) return;
+
+    const userMessage = message.trim();
+    setMessage('');
+    setChatHistory(prev => [...prev, { role: 'user', content: userMessage }]);
+    setIsTyping(true);
+
+    try {
+      const response = await fetch('http://localhost:8000/api/stock/market-chat/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: userMessage }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get response');
+      }
+
+      const data = await response.json();
+      setChatHistory(prev => [...prev, { role: 'assistant', content: data.response }]);
+    } catch (err) {
+      console.error('Error sending message:', err);
+      setChatHistory(prev => [...prev, { 
+        role: 'assistant', 
+        content: 'I apologize, but I encountered an error processing your request. Please try again.' 
+      }]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  const handleQuestionClick = (question: string) => {
+    setMessage(question);
+    handleSendMessage();
+  };
 
   return (
     <div className={`min-h-screen p-6 pt-24 ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
@@ -28,27 +178,31 @@ const MarketInsights: React.FC = () => {
             <TrendingUp className="w-5 h-5 mr-2" />
             Key Indices
           </h2>
-          <div className="space-y-4">
-            {/* Placeholder for indices */}
-            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-              <div className="flex justify-between items-center">
-                <span>S&P 500</span>
-                <span className="text-green-500">+1.2%</span>
-              </div>
+          {loading ? (
+            <div className="flex items-center justify-center h-32">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
             </div>
-            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-              <div className="flex justify-between items-center">
-                <span>NASDAQ</span>
-                <span className="text-red-500">-0.8%</span>
-              </div>
+          ) : error ? (
+            <div className="text-red-500 text-center">{error}</div>
+          ) : (
+            <div className="space-y-4">
+              {indicesData?.us && Object.entries(indicesData.us).map(([symbol, data]) => (
+                <div key={symbol} className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <span className="font-medium">{data.name}</span>
+                      <div className="text-sm text-gray-500">${data.price.toLocaleString()}</div>
+                    </div>
+                    <div className={`flex items-center ${data.change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                      <span className="text-sm font-medium">
+                        {data.change >= 0 ? '+' : ''}{data.change_percent.toFixed(2)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
-            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-              <div className="flex justify-between items-center">
-                <span>Dow Jones</span>
-                <span className="text-green-500">+0.5%</span>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Global Markets Snapshot */}
@@ -57,17 +211,27 @@ const MarketInsights: React.FC = () => {
             <Globe className="w-5 h-5 mr-2" />
             Global Markets
           </h2>
-          {/* Placeholder for global markets */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-              <p className="font-medium">FTSE 100</p>
-              <p className="text-green-500">+0.7%</p>
+          {loading ? (
+            <div className="flex items-center justify-center h-32">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
             </div>
-            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-              <p className="font-medium">Nikkei 225</p>
-              <p className="text-red-500">-0.3%</p>
+          ) : error ? (
+            <div className="text-red-500 text-center">{error}</div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              {indicesData?.global && Object.entries(indicesData.global).map(([symbol, data]) => (
+                <div key={symbol} className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                  <div>
+                    <p className="font-medium">{data.name}</p>
+                    <div className="text-sm text-gray-500">${data.price.toLocaleString()}</div>
+                    <p className={`text-sm font-medium ${data.change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                      {data.change >= 0 ? '+' : ''}{data.change_percent.toFixed(2)}%
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
+          )}
         </div>
 
         {/* Sector Performance */}
@@ -76,21 +240,31 @@ const MarketInsights: React.FC = () => {
             <BarChart2 className="w-5 h-5 mr-2" />
             Sector Performance
           </h2>
-          {/* Placeholder for sector performance */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span>Technology</span>
-              <span className="text-green-500">+2.1%</span>
+          {loading ? (
+            <div className="flex items-center justify-center h-32">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
             </div>
-            <div className="flex items-center justify-between">
-              <span>Healthcare</span>
-              <span className="text-red-500">-0.5%</span>
+          ) : error ? (
+            <div className="text-red-500 text-center">{error}</div>
+          ) : (
+            <div className="space-y-3">
+              {indicesData?.sectors && Object.entries(indicesData.sectors)
+                .sort((a, b) => b[1].change_percent - a[1].change_percent) // Sort by performance
+                .map(([symbol, data]) => (
+                  <div key={symbol} className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <span className="font-medium">{data.name}</span>
+                      <span className="text-sm text-gray-500">${data.price.toLocaleString()}</span>
+                    </div>
+                    <div className={`flex items-center ${data.change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                      <span className="text-sm font-medium">
+                        {data.change >= 0 ? '+' : ''}{data.change_percent.toFixed(2)}%
+                      </span>
+                    </div>
+                  </div>
+                ))}
             </div>
-            <div className="flex items-center justify-between">
-              <span>Financials</span>
-              <span className="text-green-500">+0.8%</span>
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -102,32 +276,48 @@ const MarketInsights: React.FC = () => {
             <ArrowUpCircle className="w-5 h-5 mr-2 text-green-500" />
             Top Movers
           </h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <h3 className="font-medium mb-2">Top Gainers</h3>
-              <div className="space-y-2">
-                {/* Placeholder for gainers */}
-                <div className={`p-3 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                  <div className="flex justify-between">
-                    <span>AAPL</span>
-                    <span className="text-green-500">+5.2%</span>
-                  </div>
+          {loading ? (
+            <div className="flex items-center justify-center h-32">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            </div>
+          ) : error ? (
+            <div className="text-red-500 text-center">{error}</div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <h3 className="font-medium mb-2">Top Gainers</h3>
+                <div className="space-y-2">
+                  {indicesData?.movers.gainers.map((stock) => (
+                    <div key={stock.symbol} className={`p-3 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                      <div className="flex justify-between">
+                        <div>
+                          <span className="font-medium">{stock.symbol}</span>
+                          <div className="text-sm text-gray-500">${stock.price.toLocaleString()}</div>
+                        </div>
+                        <span className="text-green-500">+{stock.change_percent.toFixed(2)}%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <h3 className="font-medium mb-2">Top Losers</h3>
+                <div className="space-y-2">
+                  {indicesData?.movers.losers.map((stock) => (
+                    <div key={stock.symbol} className={`p-3 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                      <div className="flex justify-between">
+                        <div>
+                          <span className="font-medium">{stock.symbol}</span>
+                          <div className="text-sm text-gray-500">${stock.price.toLocaleString()}</div>
+                        </div>
+                        <span className="text-red-500">{stock.change_percent.toFixed(2)}%</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
-            <div>
-              <h3 className="font-medium mb-2">Top Losers</h3>
-              <div className="space-y-2">
-                {/* Placeholder for losers */}
-                <div className={`p-3 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                  <div className="flex justify-between">
-                    <span>META</span>
-                    <span className="text-red-500">-3.8%</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Volume Leaders */}
@@ -136,68 +326,148 @@ const MarketInsights: React.FC = () => {
             <Volume2 className="w-5 h-5 mr-2" />
             Volume Leaders
           </h2>
-          <div className="space-y-3">
-            {/* Placeholder for volume leaders */}
-            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="font-medium">TSLA</p>
-                  <p className="text-sm text-gray-500">Volume: 52.3M</p>
-                </div>
-                <span className="text-green-500">+2.4%</span>
-              </div>
+          {loading ? (
+            <div className="flex items-center justify-center h-32">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
             </div>
-          </div>
+          ) : error ? (
+            <div className="text-red-500 text-center">{error}</div>
+          ) : (
+            <div className="space-y-3">
+              {indicesData?.volume_leaders.map((stock) => (
+                <div key={stock.symbol} className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-medium">{stock.symbol}</p>
+                      <div className="flex items-center space-x-2">
+                        <p className="text-sm text-gray-500">Volume: {stock.volume}</p>
+                        <span className={`text-xs ${stock.volume_change_percent >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                          ({stock.volume_change_percent >= 0 ? '+' : ''}{stock.volume_change_percent.toFixed(1)}%)
+                        </span>
+                      </div>
+                    </div>
+                    <span className={`${stock.change_percent >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                      {stock.change_percent >= 0 ? '+' : ''}{stock.change_percent.toFixed(2)}%
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Market Sentiment and AI Insights */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Market Sentiment */}
-        <div className={`p-6 rounded-xl shadow-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
-          <h2 className="text-xl font-bold mb-4 flex items-center">
-            <MessageSquare className="w-5 h-5 mr-2" />
-            Market Sentiment
-          </h2>
-          {/* Placeholder for sentiment analysis */}
-          <div className="space-y-4">
-            <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-              <p className="font-medium">Overall Sentiment</p>
-              <div className="flex items-center mt-2">
-                <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                  <div className="bg-green-600 h-2.5 rounded-full" style={{ width: '70%' }}></div>
-                </div>
-                <span className="ml-2">70%</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* AI Insights */}
-        <div className={`p-6 rounded-xl shadow-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
-          <h2 className="text-xl font-bold mb-4 flex items-center">
+      {/* Chat Interface */}
+      <div className={`fixed bottom-6 right-6 w-96 ${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-xl`}>
+        <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+          <h3 className="text-lg font-semibold flex items-center">
             <Brain className="w-5 h-5 mr-2" />
-            AI Insights
-          </h2>
-          {/* Placeholder for AI insights */}
-          <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-            <p className="text-sm">Market showing strong bullish signals based on technical indicators and sentiment analysis.</p>
+            AI Assistant - Market Insights
+          </h3>
+        </div>
+
+        {/* Chat Messages */}
+        <div 
+          ref={chatContainerRef}
+          className="h-96 overflow-y-auto p-4 space-y-4"
+        >
+          {chatHistory.length === 0 && (
+            <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              Hello! I'm your AI Assistant for Market Insights. I can help you analyze market trends, sector performance, and provide real-time financial data. Feel free to ask me anything about the current market conditions.
+            </div>
+          )}
+          {chatHistory.map((msg, index) => (
+            <div
+              key={index}
+              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            >
+              <div
+                className={`max-w-[80%] rounded-lg p-3 ${
+                  msg.role === 'user'
+                    ? `${isDarkMode ? 'bg-blue-600' : 'bg-blue-500'} text-white`
+                    : `${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`
+                }`}
+              >
+                <p className="text-sm">{msg.content}</p>
+              </div>
+            </div>
+          ))}
+          {isTyping && (
+            <div className="flex justify-start">
+              <div className={`rounded-lg p-3 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                <div className="flex space-x-2">
+                  <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" />
+                  <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-100" />
+                  <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-200" />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Suggested Questions */}
+        <div className={`p-4 border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+          <p className="text-sm font-medium mb-2">Try asking about:</p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => handleQuestionClick("What are the top performing sectors today?")}
+              className={`text-xs px-3 py-1 rounded-full ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'}`}
+            >
+              Top performing sectors
+            </button>
+            <button
+              onClick={() => handleQuestionClick("Which stocks have the highest trading volume?")}
+              className={`text-xs px-3 py-1 rounded-full ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'}`}
+            >
+              Highest volume stocks
+            </button>
+            <button
+              onClick={() => handleQuestionClick("How are global markets performing today?")}
+              className={`text-xs px-3 py-1 rounded-full ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'}`}
+            >
+              Global markets performance
+            </button>
+            <button
+              onClick={() => handleQuestionClick("What are today's biggest market movers?")}
+              className={`text-xs px-3 py-1 rounded-full ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'}`}
+            >
+              Biggest market movers
+            </button>
+            <button
+              onClick={() => handleQuestionClick("Compare technology sector vs healthcare sector")}
+              className={`text-xs px-3 py-1 rounded-full ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'}`}
+            >
+              Sector comparison
+            </button>
           </div>
         </div>
-      </div>
 
-      {/* Voice Assistant Bar */}
-      <div className={`fixed bottom-6 left-1/2 transform -translate-x-1/2 w-full max-w-2xl px-4`}>
-        <div className={`p-4 rounded-full shadow-lg flex items-center space-x-4 ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
-          <Search className="w-5 h-5 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Ask about market insights..."
-            className={`flex-1 bg-transparent border-none focus:outline-none ${isDarkMode ? 'text-white' : 'text-gray-900'}`}
-          />
-          <button className={`p-2 rounded-full ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>
-            <Mic className="w-5 h-5 text-blue-500" />
-          </button>
+        {/* Chat Input */}
+        <div className={`p-4 border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+          <div className="flex items-center space-x-2">
+            <input
+              type="text"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+              placeholder="Ask about market insights..."
+              className={`flex-1 p-2 rounded-lg ${
+                isDarkMode 
+                  ? 'bg-gray-700 text-white placeholder-gray-400' 
+                  : 'bg-gray-100 placeholder-gray-500'
+              } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+            />
+            <button
+              onClick={handleSendMessage}
+              className={`p-2 rounded-lg ${
+                isDarkMode 
+                  ? 'bg-blue-600 hover:bg-blue-700' 
+                  : 'bg-blue-500 hover:bg-blue-600'
+              } text-white transition-colors duration-200`}
+            >
+              <Send className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
