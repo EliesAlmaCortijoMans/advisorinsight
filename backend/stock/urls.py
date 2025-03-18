@@ -22,4 +22,5 @@ urlpatterns = [
     path('chat/market/', views.market_chat, name='market_chat'),
     path('market-chat/', views.market_chat, name='market_chat'),
     path('market-chat/suggested-questions/', views.get_market_suggested_questions, name='market_suggested_questions'),
+    path('company-comparison/<str:symbols>/', views.get_company_comparison, name='company_comparison'),
 ] 

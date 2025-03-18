@@ -743,7 +743,7 @@ const Dashboard: React.FC = () => {
                   <h2 className={`text-3xl font-bold ${
                     isDarkMode ? 'text-gray-100' : 'text-gray-900'
                   }`}>
-                    Welcome to AdvisorInsight
+                    Welcome to Advisor Insight
                   </h2>
                   <p className={`text-xl leading-relaxed ${
                     isDarkMode ? 'text-gray-300' : 'text-gray-600'

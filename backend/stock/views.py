@@ -1975,3 +1975,56 @@ def get_market_suggested_questions(request):
         "How are financial stocks doing today?"
     ]
     return Response({'questions': questions})
+
+@api_view(['GET'])
+def get_company_comparison(request, symbols):
+    """Fetch comparison data for multiple companies."""
+    try:
+        # Split the symbols string into a list
+        symbol_list = symbols.split(',')
+        
+        # Limit to maximum 5 companies for performance
+        symbol_list = symbol_list[:5]
+        
+        comparison_data = {}
+        
+        for symbol in symbol_list:
+            try:
+                # Get basic financials from Finnhub
+                basic_financials = finnhub_client.company_basic_financials(symbol, 'all')
+                company_profile = finnhub_client.company_profile2(symbol=symbol)
+                
+                # Get real-time quote
+                quote = finnhub_client.quote(symbol)
+                
+                # Get metrics
+                metrics = basic_financials.get('metric', {})
+                
+                # Format the data
+                comparison_data[symbol] = {
+                    'symbol': symbol,
+                    'companyName': company_profile.get('name', symbol),
+                    'price': quote.get('c', 0),  # Current price
+                    'change': quote.get('d', 0),  # Price change
+                    'changePercent': quote.get('dp', 0),  # Percent change
+                    'marketCap': company_profile.get('marketCapitalization', 0),
+                    'peRatio': metrics.get('peBasicExcl', 0),
+                    'revenue': metrics.get('revenuePerShareAnnual', 0) * (company_profile.get('shareOutstanding', 0) or 0),
+                    'revenueGrowth': metrics.get('revenueGrowthTTM', 0),
+                    'employees': company_profile.get('employeeTotal', 0),
+                    'profitMargin': metrics.get('netMarginTTM', 0),
+                    'dividendYield': metrics.get('dividendYieldIndicatedAnnual', 0)
+                }
+                
+            except Exception as e:
+                logger.error(f"Error fetching data for {symbol}: {str(e)}")
+                comparison_data[symbol] = {
+                    'symbol': symbol,
+                    'error': f"Failed to fetch data for {symbol}"
+                }
+        
+        return JsonResponse(comparison_data)
+        
+    except Exception as e:
+        logger.error(f"Error in company comparison: {str(e)}")
+        return JsonResponse({'error': str(e)}, status=500)
