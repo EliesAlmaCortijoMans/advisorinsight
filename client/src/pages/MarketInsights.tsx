@@ -307,17 +307,17 @@ const MarketInsights: React.FC = () => {
               <div>
                 <h3 className="font-medium mb-2">Top Losers</h3>
                 <div className="space-y-2">
-                  {indicesData?.movers.losers.map((stock) => (
-                    <div key={stock.symbol} className={`p-3 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                      <div className="flex justify-between">
-                        <div>
-                          <span className="font-medium">{stock.symbol}</span>
-                          <div className="text-sm text-gray-500">${stock.price.toLocaleString()}</div>
+                  {indicesData?.movers.losers.slice().reverse().map((stock) => (
+                      <div key={stock.symbol} className={`p-3 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                        <div className="flex justify-between">
+                          <div>
+                            <span className="font-medium">{stock.symbol}</span>
+                            <div className="text-sm text-gray-500">${stock.price.toLocaleString()}</div>
+                          </div>
+                          <span className="text-red-500">{stock.change_percent.toFixed(2)}%</span>
                         </div>
-                        <span className="text-red-500">{stock.change_percent.toFixed(2)}%</span>
                       </div>
-                    </div>
-                  ))}
+                    ))} 
                 </div>
               </div>
             </div>
