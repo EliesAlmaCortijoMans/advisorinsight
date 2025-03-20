@@ -146,8 +146,8 @@ def get_transcript(request, company_symbol, transcript_id):
 def get_audio_history(request, symbol):
     try:
         print(f"Fetching audio history for symbol: {symbol}")
-        transcript_dir = Path(__file__).resolve().parent.parent / 'data' / symbol / 'transcripts'
-        audio_dir = Path(__file__).resolve().parent.parent / 'data' / symbol / 'audios'
+        transcript_dir = Path(settings.MEDIA_ROOT) / symbol / 'transcripts'
+        audio_dir = Path(settings.MEDIA_ROOT) / symbol / 'audios'
         
         print(f"Checking directories - Transcript dir: {transcript_dir}, Audio dir: {audio_dir}")
         
@@ -166,26 +166,33 @@ def get_audio_history(request, symbol):
         
         for transcript_file in transcript_dir.glob('*.json'):
             print(f"Processing transcript file: {transcript_file}")
-            with open(transcript_file, 'r') as f:
-                transcript_data = json.load(f)
-            
-            audio_file_name = f"{transcript_file.stem}.mp3"
-            audio_file_path = audio_dir / audio_file_name
-            
-            # Use relative URL for audio files
-            audio_url = f'/media/{symbol}/audios/{audio_file_name}'
-            
-            print(f"Checking audio file: {audio_file_path}")
-            audio_exists = audio_file_path.exists()
-            print(f"Audio file exists: {audio_exists}")
-            
-            audio_history.append({
-                'id': transcript_file.stem,
-                'title': transcript_data.get('title', 'Earnings Call'),
-                'time': transcript_data.get('time', ''),
-                'audioUrl': audio_url,
-                'audioAvailable': audio_exists
-            })
+            try:
+                with open(transcript_file, 'r') as f:
+                    transcript_data = json.load(f)
+                
+                audio_file_name = f"{transcript_file.stem}.mp3"
+                audio_file_path = audio_dir / audio_file_name
+                
+                # Use relative URL for audio files
+                audio_url = f'/media/{symbol}/audios/{audio_file_name}'
+                
+                print(f"Checking audio file: {audio_file_path}")
+                audio_exists = audio_file_path.exists()
+                print(f"Audio file exists: {audio_exists}")
+                
+                audio_history.append({
+                    'id': transcript_file.stem,
+                    'title': transcript_data.get('title', 'Earnings Call'),
+                    'time': transcript_data.get('time', ''),
+                    'audioUrl': audio_url if audio_exists else None,
+                    'audioAvailable': audio_exists
+                })
+            except json.JSONDecodeError as e:
+                print(f"Error decoding JSON from {transcript_file}: {e}")
+                continue
+            except Exception as e:
+                print(f"Error processing file {transcript_file}: {e}")
+                continue
         
         if not audio_history:
             print(f"No audio history found for {symbol}")
@@ -197,10 +204,14 @@ def get_audio_history(request, symbol):
         audio_history.sort(key=lambda x: x.get('time', ''), reverse=True)
         print(f"Returning audio history for {symbol}: {audio_history}")
         
-        return JsonResponse({
+        response = JsonResponse({
             'success': True,
             'audioHistory': audio_history
         })
+        response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
+        response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
         
     except Exception as e:
         print(f"Error in get_audio_history: {str(e)}")
@@ -237,72 +248,97 @@ def get_company_transcripts(request, symbol):
                     
                     if exists:
                         logger.info(f"Using cached transcripts for {symbol}")
-                        return JsonResponse({
+                        response = JsonResponse({
                             'success': True,
                             'transcripts': json.loads(cached_transcripts)
                         })
+                        response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
+                        response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+                        response["Access-Control-Allow-Headers"] = "Content-Type"
+                        return response
             except Exception as redis_error:
                 logger.error(f"Redis error: {redis_error}")
                 # Continue without Redis
                 pass
         
         # If not in cache or Redis failed, get from filesystem
-        base_dir = os.path.join(settings.MEDIA_ROOT, symbol, 'transcripts')
+        base_dir = Path(settings.MEDIA_ROOT) / symbol / 'transcripts'
         logger.info(f"Looking for transcripts in: {base_dir}")
         
-        if not os.path.exists(base_dir):
+        if not base_dir.exists():
             logger.warning(f"Directory not found: {base_dir}")
-            return JsonResponse({
+            response = JsonResponse({
                 'success': False,
                 'error': f'No transcripts found for {symbol}'
             }, status=404)
+            response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
+            response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+            response["Access-Control-Allow-Headers"] = "Content-Type"
+            return response
         
         # Get all transcript files for the company
         transcript_files = sorted(
-            [f for f in os.listdir(base_dir) if f.endswith('.json')],
+            [f for f in base_dir.glob('*.json')],
             reverse=True  # Most recent first
         )
         logger.info(f"Found transcript files: {transcript_files}")
         
         transcripts = []
-        for file_name in transcript_files:
+        for file_path in transcript_files:
             try:
-                with open(base_dir / file_name, 'r') as f:
+                with open(file_path, 'r') as f:
                     transcript_data = json.load(f)
                     transcripts.append(transcript_data)
+            except json.JSONDecodeError as e:
+                logger.error(f"Error reading file {file_path}: {str(e)}")
+                continue
             except Exception as e:
-                logger.error(f"Error reading file {file_name}: {str(e)}")
+                logger.error(f"Error processing file {file_path}: {str(e)}")
                 continue
         
         if not transcripts:
-            return JsonResponse({
+            response = JsonResponse({
                 'success': False,
                 'error': 'No valid transcripts found'
             }, status=404)
+            response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
+            response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+            response["Access-Control-Allow-Headers"] = "Content-Type"
+            return response
         
-        # Cache the transcripts in Redis using pipeline
-        try:
-            with redis_client.pipeline() as pipe:
-                pipe.setex(
-                    cache_key,
-                    24 * 60 * 60,  # 24 hours
-                    json.dumps(transcripts)
-                )
-                pipe.execute()
-                logger.info(f"Cached transcripts for {symbol}")
-        except Exception as e:
-            logger.error(f"Error caching transcripts: {str(e)}")
+        # Cache the transcripts in Redis if available
+        if use_redis and redis_client:
+            try:
+                with redis_client.pipeline() as pipe:
+                    pipe.setex(
+                        cache_key,
+                        24 * 60 * 60,  # 24 hours
+                        json.dumps(transcripts)
+                    )
+                    pipe.execute()
+                    logger.info(f"Cached transcripts for {symbol}")
+            except Exception as e:
+                logger.error(f"Error caching transcripts: {str(e)}")
         
-        return JsonResponse({
+        response = JsonResponse({
             'success': True,
             'transcripts': transcripts
         })
+        response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
+        response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
+        
     except Exception as e:
         logger.error(f"Error in get_company_transcripts: {str(e)}")
-        return JsonResponse({
+        response = JsonResponse({
             'success': False,
             'error': str(e)
         }, status=500)
+        response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
+        response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
 
 def fetch_earnings(from_date, to_date, symbol):
     """Fetch earnings calendar from Finnhub API using HTTP requests with caching"""
