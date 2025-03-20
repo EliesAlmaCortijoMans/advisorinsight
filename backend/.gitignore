@@ -35,6 +35,24 @@ ENV/
 local_settings.py
 db.sqlite3
 
-# Keep data directory
+# Environment variables
+.env
+.env.*
+*.env
+
+# Keep data directory but ignore sensitive files
 !data/
-!data/**/ 
+!data/**/
+*.key
+*.pem
+*.cert
+*.secret
+
+# Railway specific
+.railway/
+railway.json
+railway.toml
+
+# Misc
+.DS_Store
+Thumbs.db 

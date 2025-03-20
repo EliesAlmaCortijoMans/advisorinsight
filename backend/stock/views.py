@@ -869,29 +869,82 @@ def test_market_impact(request):
 def get_earnings_call_summary(request, symbol, call_id):
     """Generate a summary of an earnings call using GPT-3.5-turbo-16k"""
     try:
+        # Validate that the call_id matches the symbol
+        if not call_id.startswith(symbol + "_"):
+            logger.error(f"Invalid call_id format: {call_id} for symbol {symbol}")
+            response = JsonResponse({
+                'success': False,
+                'error': f'Invalid transcript ID format for {symbol}'
+            }, status=400)
+            response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
+            response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+            response["Access-Control-Allow-Headers"] = "Content-Type"
+            return response
+
         # Get OpenAI API key from settings
         api_key = settings.OPENAI_API_KEY
         if not api_key:
             logger.error("OpenAI API key not found in settings")
-            return JsonResponse({
-                'success': False,
-                'error': 'OpenAI API key not configured'
-            }, status=500)
-        
-        logger.info(f"Using OpenAI API key: {api_key[:10]}...")
+            # Return a fallback response with the raw transcript content
+            transcript_dir = Path(settings.MEDIA_ROOT) / symbol / 'transcripts'
+            transcript_file = transcript_dir / f"{call_id}.json"
+            
+            if not transcript_file.exists():
+                response = JsonResponse({
+                    'success': False,
+                    'error': f'Transcript {call_id} not found for {symbol}'
+                }, status=404)
+                response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
+                response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+                response["Access-Control-Allow-Headers"] = "Content-Type"
+                return response
+            
+            try:
+                with open(transcript_file, 'r') as f:
+                    transcript_data = json.load(f)
+                
+                # Extract text from transcript
+                summary_text = "OpenAI API key is not configured. Here's the raw transcript:\n\n"
+                for entry in transcript_data.get('transcript', []):
+                    speaker = entry.get('name', '')
+                    for speech in entry.get('speech', []):
+                        summary_text += f"{speaker}: {speech}\n\n"
+                
+                response = JsonResponse({
+                    'success': True,
+                    'summary': summary_text[:2000] + "..." if len(summary_text) > 2000 else summary_text
+                })
+                response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
+                response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+                response["Access-Control-Allow-Headers"] = "Content-Type"
+                return response
+                
+            except Exception as e:
+                response = JsonResponse({
+                    'success': False,
+                    'error': f'Error reading transcript: {str(e)}'
+                }, status=500)
+                response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
+                response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+                response["Access-Control-Allow-Headers"] = "Content-Type"
+                return response
         
         # Get the transcript file path
-        transcript_dir = Path(__file__).resolve().parent.parent / 'data' / symbol / 'transcripts'
+        transcript_dir = Path(settings.MEDIA_ROOT) / symbol / 'transcripts'
         transcript_file = transcript_dir / f"{call_id}.json"
         
         logger.info(f"Looking for transcript file at: {transcript_file}")
         
         if not transcript_file.exists():
             logger.error(f"Transcript file not found at: {transcript_file}")
-            return JsonResponse({
+            response = JsonResponse({
                 'success': False,
-                'error': f'No transcript found for {symbol} call {call_id}'
+                'error': f'Transcript {call_id} not found for {symbol}'
             }, status=404)
+            response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
+            response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+            response["Access-Control-Allow-Headers"] = "Content-Type"
+            return response
         
         # Read and process the transcript
         try:
@@ -899,16 +952,14 @@ def get_earnings_call_summary(request, symbol, call_id):
                 transcript_data = json.load(f)
         except json.JSONDecodeError as e:
             logger.error(f"Error decoding JSON from transcript file: {e}")
-            return JsonResponse({
+            response = JsonResponse({
                 'success': False,
                 'error': f'Invalid transcript file format: {str(e)}'
             }, status=500)
-        except Exception as e:
-            logger.error(f"Error reading transcript file: {e}")
-            return JsonResponse({
-                'success': False,
-                'error': f'Error reading transcript file: {str(e)}'
-            }, status=500)
+            response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
+            response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+            response["Access-Control-Allow-Headers"] = "Content-Type"
+            return response
         
         # Extract the relevant parts of the transcript
         try:
@@ -920,18 +971,25 @@ def get_earnings_call_summary(request, symbol, call_id):
             
             if not transcript_text.strip():
                 logger.error("Empty transcript text generated")
-                return JsonResponse({
+                response = JsonResponse({
                     'success': False,
                     'error': 'Empty transcript text'
                 }, status=500)
+                response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
+                response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+                response["Access-Control-Allow-Headers"] = "Content-Type"
+                return response
             
-            logger.info(f"Generated transcript text of length: {len(transcript_text)}")
         except Exception as e:
             logger.error(f"Error processing transcript data: {e}")
-            return JsonResponse({
+            response = JsonResponse({
                 'success': False,
                 'error': f'Error processing transcript: {str(e)}'
             }, status=500)
+            response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
+            response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+            response["Access-Control-Allow-Headers"] = "Content-Type"
+            return response
         
         # Generate summary using GPT-3.5-turbo-16k
         try:
@@ -939,8 +997,8 @@ def get_earnings_call_summary(request, symbol, call_id):
             client = OpenAI(api_key=api_key)
             
             logger.info("Making request to OpenAI API...")
-            response = client.chat.completions.create(
-                model="gpt-3.5-turbo-16k",  # Using GPT-3.5-turbo-16k for longer context
+            completion = client.chat.completions.create(
+                model="gpt-3.5-turbo-16k",
                 messages=[
                     {"role": "system", "content": "You are a financial analyst assistant. Summarize the key points from this earnings call transcript, focusing on financial performance, future guidance, and important announcements. Be concise but comprehensive."},
                     {"role": "user", "content": transcript_text}
@@ -949,20 +1007,30 @@ def get_earnings_call_summary(request, symbol, call_id):
                 temperature=0.3
             )
             
-            if not response or not response.choices:
+            if not completion or not completion.choices:
                 logger.error("Empty response from OpenAI API")
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Empty response from OpenAI API'
-                }, status=500)
+                # Return raw transcript as fallback
+                response = JsonResponse({
+                    'success': True,
+                    'summary': transcript_text[:2000] + "..." if len(transcript_text) > 2000 else transcript_text
+                })
+                response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
+                response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+                response["Access-Control-Allow-Headers"] = "Content-Type"
+                return response
             
-            summary = response.choices[0].message.content
+            summary = completion.choices[0].message.content
             if not summary:
                 logger.error("Empty summary received from OpenAI API")
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Empty summary received from OpenAI API'
-                }, status=500)
+                # Return raw transcript as fallback
+                response = JsonResponse({
+                    'success': True,
+                    'summary': transcript_text[:2000] + "..." if len(transcript_text) > 2000 else transcript_text
+                })
+                response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
+                response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+                response["Access-Control-Allow-Headers"] = "Content-Type"
+                return response
             
             logger.info(f"Successfully generated summary of length: {len(summary)}")
             
@@ -970,24 +1038,37 @@ def get_earnings_call_summary(request, symbol, call_id):
             cache_key = f"earnings_summary_{symbol}_{call_id}"
             cache.set(cache_key, summary, 60 * 60 * 24)  # Cache for 24 hours
             
-            return JsonResponse({
+            response = JsonResponse({
                 'success': True,
                 'summary': summary
             })
+            response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
+            response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+            response["Access-Control-Allow-Headers"] = "Content-Type"
+            return response
             
         except Exception as api_error:
             logger.error(f"OpenAI API error: {str(api_error)}")
-            return JsonResponse({
-                'success': False,
-                'error': f'Error generating summary: {str(api_error)}'
-            }, status=500)
+            # Return raw transcript as fallback
+            response = JsonResponse({
+                'success': True,
+                'summary': transcript_text[:2000] + "..." if len(transcript_text) > 2000 else transcript_text
+            })
+            response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
+            response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+            response["Access-Control-Allow-Headers"] = "Content-Type"
+            return response
         
     except Exception as e:
         logger.error(f"Error generating summary for {symbol} call {call_id}: {e}")
-        return JsonResponse({
+        response = JsonResponse({
             'success': False,
             'error': str(e)
         }, status=500)
+        response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
+        response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        response["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
 
 @api_view(['GET'])
 def get_medium_term_impact(request, symbol):
