@@ -211,32 +211,43 @@ def get_audio_history(request, symbol):
 
 def get_company_transcripts(request, symbol):
     try:
-        # Initialize Redis client
-        redis_client = redis.Redis(
-            host=os.getenv('REDIS_HOST', 'localhost'),
-            port=int(os.getenv('REDIS_PORT', 6379)),
-            db=0,
-            decode_responses=True
-        )
+        use_redis = bool(os.getenv('USE_REDIS', 'False') == 'True')
+        cached_transcripts = None
         
-        cache_key = f"transcripts:{symbol}"
+        if use_redis:
+            try:
+                # Initialize Redis client
+                redis_client = redis.Redis(
+                    host=os.getenv('REDIS_HOST', 'localhost'),
+                    port=int(os.getenv('REDIS_PORT', 6379)),
+                    db=0,
+                    decode_responses=True,
+                    socket_timeout=2,
+                    socket_connect_timeout=2
+                )
+                
+                cache_key = f"transcripts:{symbol}"
+                
+                # Use Redis pipeline for better performance
+                with redis_client.pipeline() as pipe:
+                    # Check if transcripts exist in cache
+                    pipe.exists(cache_key)
+                    pipe.get(cache_key)
+                    exists, cached_transcripts = pipe.execute()
+                    
+                    if exists:
+                        logger.info(f"Using cached transcripts for {symbol}")
+                        return JsonResponse({
+                            'success': True,
+                            'transcripts': json.loads(cached_transcripts)
+                        })
+            except Exception as redis_error:
+                logger.error(f"Redis error: {redis_error}")
+                # Continue without Redis
+                pass
         
-        # Use Redis pipeline for better performance
-        with redis_client.pipeline() as pipe:
-            # Check if transcripts exist in cache
-            pipe.exists(cache_key)
-            pipe.get(cache_key)
-            exists, cached_transcripts = pipe.execute()
-            
-            if exists:
-                logger.info(f"Using cached transcripts for {symbol}")
-                return JsonResponse({
-                    'success': True,
-                    'transcripts': json.loads(cached_transcripts)
-                })
-        
-        # If not in cache, get from filesystem
-        base_dir = Path(__file__).resolve().parent.parent / 'data' / symbol / 'transcripts'
+        # If not in cache or Redis failed, get from filesystem
+        base_dir = os.path.join(settings.MEDIA_ROOT, symbol, 'transcripts')
         logger.info(f"Looking for transcripts in: {base_dir}")
         
         if not os.path.exists(base_dir):
