@@ -22,7 +22,7 @@ interface TranscriptionMessage {
   message?: string;
 }
 
-const BACKEND_WS_URL = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//localhost:8000/ws/transcribe/`;
+const BACKEND_WS_URL = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//backend-production-2463.up.railway.app/ws/transcribe/`;
 const MAX_RECONNECT_ATTEMPTS = 3;
 const RECONNECT_DELAY = 2000; // 2 seconds
 

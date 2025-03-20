@@ -4,7 +4,7 @@ import { useSelectedCompany } from '../../contexts/CompanyContext';
 import axios from 'axios';
 
 // Configure axios defaults
-axios.defaults.baseURL = 'http://localhost:8000';
+axios.defaults.baseURL = 'http://backend-production-2463.up.railway.app';
 
 interface FinancialMetricsData {
   symbol: string;

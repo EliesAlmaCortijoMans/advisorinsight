@@ -17,7 +17,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [isConnected, setIsConnected] = useState(false);
 
   const connectWebSocket = () => {
-    const ws = new WebSocket('ws://localhost:8000/ws/stocks/');
+    const ws = new WebSocket('ws://backend-production-2463.up.railway.app/ws/stocks/');
 
     ws.onopen = () => {
       console.log('WebSocket Connected');

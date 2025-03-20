@@ -21,7 +21,7 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     // Connect to WebSocket
     console.log('Attempting to connect to WebSocket...');
-    const websocket = new WebSocket('ws://localhost:8000/ws/stock/');
+    const websocket = new WebSocket('ws://backend-production-2463.up.railway.app/ws/stock/');
 
     websocket.onopen = () => {
       console.log('WebSocket connection established');

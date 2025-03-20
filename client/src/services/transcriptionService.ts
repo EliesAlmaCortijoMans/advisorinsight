@@ -28,7 +28,7 @@ class TranscriptionService extends EventEmitter {
   private isWorkletLoaded = false;
   private currentAudioElement: HTMLAudioElement | null = null;
 
-  constructor(private socketUrl: string = 'http://localhost:5000') {
+  constructor(private socketUrl: string = 'http://backend-production-2463.up.railway.app') {
     super();
   }
 

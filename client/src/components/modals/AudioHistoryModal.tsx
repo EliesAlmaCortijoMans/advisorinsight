@@ -49,7 +49,7 @@ const AudioHistoryModal: React.FC<AudioHistoryModalProps> = ({ onClose, audioHis
       return url;
     }
     // Use the backend server URL
-    return `http://localhost:8000${url.startsWith('/') ? url : `/${url}`}`;
+    return `http://backend-production-2463.up.railway.app${url.startsWith('/') ? url : `/${url}`}`;
   };
 
   const formatDate = (dateString: string) => {
@@ -204,7 +204,7 @@ const AudioHistoryModal: React.FC<AudioHistoryModalProps> = ({ onClose, audioHis
       });
 
       // Set up WebSocket connection
-      wsRef.current = new WebSocket('ws://localhost:8000/ws/transcribe/');
+      wsRef.current = new WebSocket('ws://backend-production-2463.up.railway.app/ws/transcribe/');
       
       wsRef.current.onmessage = (event) => {
         const data = JSON.parse(event.data);

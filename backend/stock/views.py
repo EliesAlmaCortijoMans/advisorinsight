@@ -489,7 +489,7 @@ def get_earnings_schedule_view(request):
             'earnings': earnings_data,
             'timestamp': datetime.now().isoformat()
         })
-        response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+        response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
         response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
         response["Access-Control-Allow-Headers"] = "Content-Type"
         return response
@@ -509,7 +509,7 @@ def transcribe_audio(request):
             return Response({'success': False, 'error': 'No audio URL provided'}, status=400)
 
         # Get the actual file path from the URL
-        relative_path = audio_url.replace('http://localhost:8000', '')
+        relative_path = audio_url.replace('https://backend-production-2463.up.railway.app', '')
         file_path = os.path.join(settings.MEDIA_ROOT, *relative_path.split('/')[2:])
 
         if not os.path.exists(file_path):
@@ -563,7 +563,7 @@ def company_news(request):
         
         logger.info(f"Successfully fetched {len(news)} news items")
         response = JsonResponse(news, safe=False)
-        response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+        response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
         response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
         response["Access-Control-Allow-Headers"] = "Content-Type"
         return response
@@ -645,7 +645,7 @@ def stock_social_sentiment(request):
             'is_mock': False
         })
             
-        response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+        response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
         response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
         response["Access-Control-Allow-Headers"] = "Content-Type"
         return response
@@ -665,7 +665,7 @@ def get_market_impact(request, symbol):
             response = JsonResponse({
                 'error': 'Finnhub API key not configured. Please check your environment variables.'
             }, status=500)
-            response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+            response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
             response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
             response["Access-Control-Allow-Headers"] = "Content-Type"
             return response
@@ -691,7 +691,7 @@ def get_market_impact(request, symbol):
             response = JsonResponse({
                 'error': f'Error calling Finnhub API: {str(api_error)}'
             }, status=500)
-            response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+            response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
             response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
             response["Access-Control-Allow-Headers"] = "Content-Type"
             return response
@@ -707,7 +707,7 @@ def get_market_impact(request, symbol):
             response = JsonResponse({
                 'error': error_msg
             }, status=400)
-            response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+            response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
             response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
             response["Access-Control-Allow-Headers"] = "Content-Type"
             return response
@@ -749,7 +749,7 @@ def get_market_impact(request, symbol):
         }
 
         response = JsonResponse(response_data)
-        response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+        response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
         response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
         response["Access-Control-Allow-Headers"] = "Content-Type"
         return response
@@ -759,7 +759,7 @@ def get_market_impact(request, symbol):
         response = JsonResponse({
             'error': f'Internal server error while fetching data for {symbol}: {str(e)}'
         }, status=500)
-        response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+        response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
         response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
         response["Access-Control-Allow-Headers"] = "Content-Type"
         return response
@@ -1140,7 +1140,7 @@ def news_sentiment(request):
         }
         
         response = JsonResponse(response_data)
-        response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+        response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
         response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
         response["Access-Control-Allow-Headers"] = "Content-Type"
         return response
@@ -1261,7 +1261,7 @@ def qa_analysis(request, symbol, call_id):
             
             logger.info(f"Successfully analyzed Q&A for transcript {call_id}")
             response = JsonResponse(analysis)
-            response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+            response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
             response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
             response["Access-Control-Allow-Headers"] = "Content-Type"
             return response
@@ -1273,7 +1273,7 @@ def qa_analysis(request, symbol, call_id):
                 'questions_addressed': 0,
                 'follow_up_questions': 0
             })
-            response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+            response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
             response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
             response["Access-Control-Allow-Headers"] = "Content-Type"
             return response
@@ -1281,7 +1281,7 @@ def qa_analysis(request, symbol, call_id):
     except Exception as e:
         logger.error(f"Error analyzing Q&A for {symbol} call {call_id}: {str(e)}", exc_info=True)
         response = JsonResponse({'error': f'Failed to analyze Q&A: {str(e)}'}, status=500)
-        response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+        response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
         response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
         response["Access-Control-Allow-Headers"] = "Content-Type"
         return response
@@ -1485,7 +1485,7 @@ def earnings_call_sentiment(request):
             'is_mock': False
         })
         
-        response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+        response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
         response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
         response["Access-Control-Allow-Headers"] = "Content-Type"
         return response
@@ -1614,7 +1614,7 @@ def get_key_highlights(request):
             'responses': responses,
             'message': 'Successfully retrieved key highlights'
         })
-        response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+        response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
         response["Access-Control-Allow-Methods"] = "GET, OPTIONS"
         response["Access-Control-Allow-Headers"] = "Content-Type"
         return response
@@ -1649,7 +1649,7 @@ def chat(request):
         # Add CORS headers
         response_data = {'response': response}
         response = Response(response_data)
-        response["Access-Control-Allow-Origin"] = "http://localhost:5173"
+        response["Access-Control-Allow-Origin"] = "https://advisorinsight-production.up.railway.app"
         response["Access-Control-Allow-Methods"] = "POST, OPTIONS"
         response["Access-Control-Allow-Headers"] = "Content-Type"
         return response

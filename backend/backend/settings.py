@@ -136,10 +136,10 @@ ASGI_APPLICATION = 'backend.asgi.application'
 CORS_ALLOW_ALL_ORIGINS = True  # For development only
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",  # Vite dev server
+    "https://advisorinsight-production.up.railway.app",  # Vite dev server
 ]
 CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^http://localhost:[0-9]+$",
+    r"^https://advisorinsight-production.up.railway.app:[0-9]+$",
 ]
 
 # Allow all hosts in development
@@ -169,7 +169,7 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'data')
 
 # Add CORS settings if needed
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
+    "https://advisorinsight-production.up.railway.app",
 ]
 CORS_ALLOW_CREDENTIALS = True
 

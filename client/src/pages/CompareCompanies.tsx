@@ -44,7 +44,7 @@ const CompareCompanies: React.FC = () => {
   const [isSearching, setIsSearching] = useState(false);
 
   // Configure axios defaults
-  axios.defaults.baseURL = 'http://localhost:8000';
+  axios.defaults.baseURL = 'http://backend-production-2463.up.railway.app';
 
   // Function to fetch company data
   const fetchCompanyData = async (symbols: string[]) => {
