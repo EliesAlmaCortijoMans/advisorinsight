@@ -54,6 +54,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 
 ROOT_URLCONF = 'backend.urls'
@@ -120,9 +121,8 @@ USE_TZ = True
 
 
 # Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.1/howto/static-files/
-
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -168,14 +168,22 @@ CHANNEL_LAYERS = {
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'data')
 
-# Add CORS settings if needed
-CORS_ALLOWED_ORIGINS = [
-    "https://advisorinsight-production.up.railway.app",
-]
-CORS_ALLOW_CREDENTIALS = True
+# Ensure the data directory exists
+os.makedirs(MEDIA_ROOT, exist_ok=True)
 
-# Add CORS headers for media files
-CORS_URLS_REGEX = r'^/(?:api|media)/.*$'
+# Configure whitenoise for static files
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# Configure storage for media files
+DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+
+# Security settings for production
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
 
 # OpenAI API Key
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')

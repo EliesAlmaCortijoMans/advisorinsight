@@ -27,5 +27,5 @@ pypdf
 yfinance==0.2.36
 
 django-redis
-whitenoise
+whitenoise==6.6.0
 gunicorn

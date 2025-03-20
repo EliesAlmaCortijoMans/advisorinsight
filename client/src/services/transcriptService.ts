@@ -1,3 +1,7 @@
+const API_BASE_URL = import.meta.env.PROD 
+  ? 'https://backend-production-2463.up.railway.app'
+  : '';
+
 // Cache for transcripts
 export const transcriptCache = new Map<string, any[]>();
 
@@ -23,8 +27,8 @@ export const fetchCompanyTranscripts = async (symbol: string) => {
       return transcriptCache.get(symbol);
     }
 
-    console.log('Making request to:', `/api/transcripts/${symbol}/`);
-    const response = await fetch(`/api/transcripts/${symbol}/`, {
+    console.log('Making request to:', `${API_BASE_URL}/api/transcripts/${symbol}/`);
+    const response = await fetch(`${API_BASE_URL}/api/transcripts/${symbol}/`, {
       headers: {
         'Accept': 'application/json',
       }

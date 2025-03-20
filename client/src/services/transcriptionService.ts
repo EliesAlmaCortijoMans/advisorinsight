@@ -1,5 +1,6 @@
 import EventEmitter from 'events';
-import { io, Socket } from 'socket.io-client';
+import { Socket } from 'socket.io-client';
+import io from 'socket.io-client';
 
 interface TranscriptionSegment {
   text: string;
@@ -14,7 +15,7 @@ interface TranscriptionEvents {
 }
 
 class TranscriptionService extends EventEmitter {
-  private socket: Socket | null = null;
+  private socket: ReturnType<typeof io> | null = null;
   private isConnected = false;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
@@ -81,9 +82,9 @@ class TranscriptionService extends EventEmitter {
     this.workletNode = new AudioWorkletNode(this.audioContext!, 'audio-capture-processor');
     this.gainNode = this.audioContext!.createGain();
 
-    this.sourceNode.connect(this.workletNode);
-    this.workletNode.connect(this.gainNode);
-    this.gainNode.connect(this.audioContext!.destination);
+    this.sourceNode!.connect(this.workletNode!);
+    this.workletNode!.connect(this.gainNode!);
+    this.gainNode!.connect(this.audioContext!.destination);
   }
 
   private async cleanupAudioNodes() {
@@ -153,7 +154,7 @@ class TranscriptionService extends EventEmitter {
           this.connectionPromise = null;
         });
 
-        this.socket.on('connect_error', (error) => {
+        this.socket.on('connect_error', (error: Error) => {
           console.error('Socket.IO connection error:', error);
           this.emit('error', error);
         });
