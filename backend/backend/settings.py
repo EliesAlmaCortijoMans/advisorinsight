@@ -136,7 +136,8 @@ ASGI_APPLICATION = 'backend.asgi.application'
 CORS_ALLOW_ALL_ORIGINS = True  # For development only
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
-    "https://advisorinsight-production.up.railway.app",  # Vite dev server
+    "https://advisorinsight-production.up.railway.app",
+    "https://backend-production-2463.up.railway.app",
 ]
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https://advisorinsight-production.up.railway.app:[0-9]+$",
