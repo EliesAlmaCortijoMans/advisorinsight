@@ -208,7 +208,7 @@ class StockServer:
         """Run the StockServer: initialize Finnhub websocket and start the server."""
         await self.initialize_finnhub_ws()
         server = await websockets.serve(self.handle_client, self.host, self.port)
-        print(f"WebSocket server started at ws://{self.host}:{self.port}")
+        print(f"WebSocket server started at wss://{self.host}:{self.port}")
         await server.wait_closed()
 
 if __name__ == "__main__":

@@ -204,7 +204,7 @@ const AudioHistoryModal: React.FC<AudioHistoryModalProps> = ({ onClose, audioHis
       });
 
       // Set up WebSocket connection
-      wsRef.current = new WebSocket('ws://backend-production-2463.up.railway.app/ws/transcribe/');
+      wsRef.current = new WebSocket('wss://backend-production-2463.up.railway.app/ws/transcribe/');
       
       wsRef.current.onmessage = (event) => {
         const data = JSON.parse(event.data);

@@ -33,7 +33,7 @@ export class StockWebSocket {
         if (this.ws?.readyState === WebSocket.OPEN) return;
 
         try {
-            this.ws = new WebSocket('ws://backend-production-2463.up.railway.app/ws/stock/');
+            this.ws = new WebSocket('wss://backend-production-2463.up.railway.app/ws/stock/');
 
             this.ws.onopen = () => {
                 console.log('WebSocket connected');

@@ -100,7 +100,7 @@ Build for production:
 ### Stock Price Updates
 
    ```bash
-   Connect to: `ws://backend-production-2463.up.railway.app/ws/stock/`
+   Connect to: `wss://backend-production-2463.up.railway.app/ws/stock/`
    ```
 
 Subscribe to a symbol:

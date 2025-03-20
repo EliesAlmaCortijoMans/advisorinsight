@@ -25,7 +25,7 @@ export class AudioTranscriptionService {
     private currentStreamId: string | null = null;
     private connectionTimeout: number = 5000;
     private connectionTimer: number | null = null;
-    private readonly WEBSOCKET_URL = 'ws://backend-production-2463.up.railway.app/ws/transcribe/';
+    private readonly WEBSOCKET_URL = 'wss://backend-production-2463.up.railway.app/ws/transcribe/';
 
     private constructor() {
         this.eventEmitter = new EventEmitter();
