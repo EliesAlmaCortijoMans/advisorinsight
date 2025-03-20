@@ -49,7 +49,7 @@ const AudioHistoryModal: React.FC<AudioHistoryModalProps> = ({ onClose, audioHis
       return url;
     }
     // Use the backend server URL
-    return `http://backend-production-2463.up.railway.app${url.startsWith('/') ? url : `/${url}`}`;
+    return `https://backend-production-2463.up.railway.app${url.startsWith('/') ? url : `/${url}`}`;
   };
 
   const formatDate = (dateString: string) => {

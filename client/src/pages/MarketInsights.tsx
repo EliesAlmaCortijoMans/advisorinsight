@@ -87,7 +87,7 @@ const MarketInsights: React.FC = () => {
 
   const fetchIndicesData = async () => {
     try {
-      const response = await fetch('http://backend-production-2463.up.railway.app/api/stock/indices/');
+      const response = await fetch('https://backend-production-2463.up.railway.app/api/stock/indices/');
       if (!response.ok) {
         throw new Error('Failed to fetch indices data');
       }
@@ -104,7 +104,7 @@ const MarketInsights: React.FC = () => {
 
   const fetchSuggestedQuestions = async () => {
     try {
-      const response = await fetch('http://backend-production-2463.up.railway.app/api/stock/chat/suggested-questions/');
+      const response = await fetch('https://backend-production-2463.up.railway.app/api/stock/chat/suggested-questions/');
       if (!response.ok) {
         throw new Error('Failed to fetch suggested questions');
       }
@@ -142,7 +142,7 @@ const MarketInsights: React.FC = () => {
     setIsTyping(true);
 
     try {
-      const response = await fetch('http://backend-production-2463.up.railway.app/api/stock/market-chat/', {
+      const response = await fetch('https://backend-production-2463.up.railway.app/api/stock/market-chat/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -89,7 +89,7 @@ const MarketImpact: React.FC = () => {
       
       try {
         if (timeframe === 'short') {
-          const response = await fetch(`http://backend-production-2463.up.railway.app/api/stock/market-impact/${selectedCompany.symbol}/`);
+          const response = await fetch(`https://backend-production-2463.up.railway.app/api/stock/market-impact/${selectedCompany.symbol}/`);
           if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.error || 'Failed to fetch market impact data');
@@ -97,7 +97,7 @@ const MarketImpact: React.FC = () => {
           const data = await response.json();
           setMarketData(data);
         } else if (timeframe === 'medium') {
-          const response = await fetch(`http://backend-production-2463.up.railway.app/api/stock/market-impact/medium-term/${selectedCompany.symbol}/`);
+          const response = await fetch(`https://backend-production-2463.up.railway.app/api/stock/market-impact/medium-term/${selectedCompany.symbol}/`);
           if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.error || 'Failed to fetch medium-term data');
@@ -105,7 +105,7 @@ const MarketImpact: React.FC = () => {
           const data = await response.json();
           setMediumTermData(data);
         } else if (timeframe === 'long') {
-          const response = await fetch(`http://backend-production-2463.up.railway.app/api/stock/market-impact/long-term/${selectedCompany.symbol}/`);
+          const response = await fetch(`https://backend-production-2463.up.railway.app/api/stock/market-impact/long-term/${selectedCompany.symbol}/`);
           if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.error || 'Failed to fetch long-term data');
