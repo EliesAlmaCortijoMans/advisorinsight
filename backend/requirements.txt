@@ -25,3 +25,7 @@ langchain-community
 faiss-cpu 
 pypdf
 yfinance==0.2.36
+
+django-redis
+whitenoise
+gunicorn
