@@ -24,9 +24,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-s-0$efgv@ba@jx9cza2d3h-)60j)a6pfdvp)it@wer7jsej)9k'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
-ALLOWED_HOSTS = ['*']  # For development only
+ALLOWED_HOSTS = [
+    'backend-production-2463.up.railway.app',
+    'advisorinsight-production.up.railway.app',
+    'localhost',
+    '127.0.0.1'
+]
 
 
 # Application definition
@@ -132,58 +137,78 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Add ASGI application
 ASGI_APPLICATION = 'backend.asgi.application'
 
-# Add these settings
-CORS_ALLOW_ALL_ORIGINS = True  # For development only
+# CORS settings
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     "https://advisorinsight-production.up.railway.app",
     "https://backend-production-2463.up.railway.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173"
 ]
-CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^https://advisorinsight-production.up.railway.app:[0-9]+$",
-]
 
-# Allow all hosts in development
-ALLOWED_HOSTS = ['*']
-
-# WebSocket settings
-ASGI_APPLICATION = 'backend.asgi.application'
-
-# Add WebSocket to allowed CORS methods
 CORS_ALLOW_METHODS = [
     'GET',
     'POST',
-    'OPTIONS',
-    'WEBSOCKET',
+    'PUT',
+    'PATCH',
+    'DELETE',
+    'OPTIONS'
 ]
 
-# Channel layer configuration
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+# Rest Framework settings
+REST_FRAMEWORK = {
+    'DEFAULT_RENDERER_CLASSES': (
+        'rest_framework.renderers.JSONRenderer',
+    ) if not DEBUG else (
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',
+    ),
+    'EXCEPTION_HANDLER': 'rest_framework.views.exception_handler'
+}
+
+# Channel layer configuration with error handling
 CHANNEL_LAYERS = {
     'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer'
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        'CONFIG': {
+            'capacity': 1000,
+        },
     }
 }
 
-# Media files configuration
+# Media files configuration with proper permissions
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'data')
-
-# Ensure the data directory exists
 os.makedirs(MEDIA_ROOT, exist_ok=True)
 
-# Configure whitenoise for static files
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# Ensure the data directory exists with proper permissions
+for symbol in ['AAPL', 'TSLA', 'WMT', 'IBM', 'GME', 'NVDA', 'MSFT']:
+    os.makedirs(os.path.join(MEDIA_ROOT, symbol, 'transcripts'), exist_ok=True)
+    os.makedirs(os.path.join(MEDIA_ROOT, symbol, 'audios'), exist_ok=True)
 
-# Configure storage for media files
-DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
-
-# Security settings for production
+# Security settings
 if not DEBUG:
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
 
 # OpenAI API Key
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
